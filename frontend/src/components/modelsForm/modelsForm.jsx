@@ -26,12 +26,15 @@ const ModelForm = ({ onSubmit }) => {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 p-4 bg-base-200 rounded-lg shadow">
+    <form
+      onSubmit={handleSubmit}
+      className="space-y-4 p-6 bg-base-200 rounded-lg shadow w-full h-full"
+    >
       {/* Model Type Dropdown */}
-      <div className="form-control">
-        <label className="label mr-2">Model Type</label>
+      <div className="form-control flex flex-row items-center space-x-4">
+        <label className="w-32">Model Type</label>
         <select
-          className="select select-bordered"
+          className="select select-bordered w-full"
           value={modelType}
           onChange={(e) => setModelType(e.target.value)}
         >
@@ -43,10 +46,10 @@ const ModelForm = ({ onSubmit }) => {
       {/* Planner & Actor Dropdowns if not Unified */}
       {modelType !== "unified" && (
         <>
-          <div className="form-control">
-            <label className="label mr-2">Planner</label>
+          <div className="form-control flex flex-row items-center space-x-4">
+            <label className="w-32">Planner</label>
             <select
-              className="select select-bordered"
+              className="select select-bordered w-full"
               value={plannerModel}
               onChange={(e) => setPlannerModel(e.target.value)}
             >
@@ -55,10 +58,10 @@ const ModelForm = ({ onSubmit }) => {
             </select>
           </div>
 
-          <div className="form-control">
-            <label className="label mr-2">Actor</label>
+          <div className="form-control flex flex-row items-center space-x-4">
+            <label className="w-32">Actor</label>
             <select
-              className="select select-bordered"
+              className="select select-bordered w-full"
               value={actorModel}
               onChange={(e) => setActorModel(e.target.value)}
             >
@@ -71,11 +74,11 @@ const ModelForm = ({ onSubmit }) => {
 
       {/* API Key Fields */}
       {modelType === "unified" ? (
-        <div className="form-control">
-          <label className="label mr-2">Claude API Key</label>
+        <div className="form-control flex flex-row items-center space-x-4">
+          <label className="w-32">Claude API Key</label>
           <input
             type="password"
-            className="input input-bordered"
+            className="input input-bordered w-full"
             placeholder="Enter Claude API key"
             value={plannerApiKey}
             onChange={(e) => setPlannerApiKey(e.target.value)}
@@ -83,22 +86,22 @@ const ModelForm = ({ onSubmit }) => {
         </div>
       ) : (
         <>
-          <div className="form-control">
-            <label className="label mr-2">Planner API Key</label>
+          <div className="form-control flex flex-row items-center space-x-4">
+            <label className="w-32">Planner API Key</label>
             <input
               type="password"
-              className="input input-bordered"
+              className="input input-bordered w-full"
               placeholder="Enter planner API key"
               value={plannerApiKey}
               onChange={(e) => setPlannerApiKey(e.target.value)}
             />
           </div>
 
-          <div className="form-control">
-            <label className="label mr-2">Actor API Key</label>
+          <div className="form-control flex flex-row items-center space-x-4">
+            <label className="w-32">Actor API Key</label>
             <input
               type="password"
-              className="input input-bordered"
+              className="input input-bordered w-full"
               placeholder="Enter actor API key"
               value={actorApiKey}
               onChange={(e) => setActorApiKey(e.target.value)}
