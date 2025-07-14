@@ -1,26 +1,30 @@
 import { useState } from "react";
-import MessageBubble from "./messageBubble";
+import MessageBubble from "./MessageBubble";
+import type { Message } from "../../types/ChatType";
 
-const Chatbot = () => {
-  const [messages, setMessages] = useState([]);
+const ChatBot = () => {
+  const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
 
   const sendMessage = () => {
     if (!input.trim() || isStreaming) return;
 
-    const userMessage = { role: "user", message: input };
+    const userMessage: Message = { role: "user", message: input };
     setMessages((prev) => [...prev, userMessage]);
     setInput("");
     simulateAgentStream(input);
   };
 
-  const simulateAgentStream = async () => {
+  const simulateAgentStream = async (input: string) => {
     setIsStreaming(true);
 
-    // Show "typing" indicator
-    setMessages((prev) => [...prev, { role: "agent", message: "..." }]);
-
+    if (!input) {
+     setMessages((prev) => [...prev, { role: "agent", message: "Please provide a task." }]);
+    } else {
+     setMessages((prev) => [...prev, { role: "agent", message: "..." }]);
+    }
+    
     const simulatedChunks = [
       "Let me handle that for you...",
       "Opening the calendar app...",
@@ -69,4 +73,4 @@ const Chatbot = () => {
   );
 };
 
-export default Chatbot;
+export default ChatBot;
