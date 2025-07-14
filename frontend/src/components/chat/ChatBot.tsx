@@ -1,52 +1,10 @@
-import { useState } from "react";
+// components/chat/ChatBot.tsx
+import React from "react";
+import { useChatBotState } from "../../hooks/useChatBotState";
 import MessageBubble from "./MessageBubble";
-import type { Message } from "../../types/ChatType";
 
-const ChatBot = () => {
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [input, setInput] = useState("");
-  const [isStreaming, setIsStreaming] = useState(false);
-
-  const sendMessage = () => {
-    if (!input.trim() || isStreaming) return;
-
-    const userMessage: Message = { role: "user", message: input };
-    setMessages((prev) => [...prev, userMessage]);
-    setInput("");
-    simulateAgentStream(input);
-  };
-
-  const simulateAgentStream = async (input: string) => {
-    setIsStreaming(true);
-
-    if (!input) {
-     setMessages((prev) => [...prev, { role: "agent", message: "Please provide a task." }]);
-    } else {
-     setMessages((prev) => [...prev, { role: "agent", message: "..." }]);
-    }
-    
-    const simulatedChunks = [
-      "Let me handle that for you...",
-      "Opening the calendar app...",
-      "Creating event titled 'Team Sync'...",
-      "Scheduled for tomorrow at 10 AM.",
-      "All done! ✅"
-    ];
-
-    for (let i = 0; i < simulatedChunks.length; i++) {
-      await new Promise((res) => setTimeout(res, 1000));
-
-      // Replace "..." with first real message or append after
-      setMessages((prev) => {
-        const withoutTyping = prev.filter((msg) => msg.message !== "...");
-        return [...withoutTyping, { role: "agent", message: simulatedChunks[i] }, { role: "agent", message: "..." }];
-      });
-    }
-
-    // Remove final "..." bubble
-    setMessages((prev) => prev.filter((msg) => msg.message !== "..."));
-    setIsStreaming(false);
-  };
+const ChatBot: React.FC = () => {
+  const { messages, input, setInput, isStreaming, sendMessage } = useChatBotState();
 
   return (
     <div className="p-4 space-y-4 bg-base-100 rounded-lg shadow h-full">

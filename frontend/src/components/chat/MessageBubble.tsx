@@ -1,3 +1,4 @@
+import React from "react";
 import type { MessageBubbleProps } from "../../types/ChatType";
 
 const MessageBubble: React.FC<MessageBubbleProps> = ({ message, role }) => {
