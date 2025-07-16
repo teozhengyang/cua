@@ -28,7 +28,7 @@ echo -e "${YELLOW}▶️  Starting full-stack application...${NC}"
 # BACKEND_PID=$!
 
 # -------------------------
-# Start Vite React frontend
+# Start Vite React frontend with Electron
 # -------------------------
 echo -e "${YELLOW}🎨 Setting up frontend (Vite + React)...${NC}"
 cd frontend
@@ -39,6 +39,10 @@ npm install  # or use `yarn` if preferred
 echo -e "${GREEN}✅ Frontend dependencies installed.${NC}"
 echo -e "${YELLOW}🚀 Launching Vite development server on http://localhost:5173 ...${NC}"
 npm run dev &
+while ! nc -z localhost 5173; do
+  sleep 0.5
+done
+npm run electron &
 FRONTEND_PID=$!
 
 # -------------------------

@@ -1,47 +1,57 @@
-# Enable strict mode and exit on error
+# Exit on error
 $ErrorActionPreference = "Stop"
 
-# Set colored output helpers
-function Write-Yellow { Write-Host $args -ForegroundColor Yellow }
-function Write-Green { Write-Host $args -ForegroundColor Green }
+# Define colors
+$GREEN = "`e[32m"
+$YELLOW = "`e[33m"
+$NC = "`e[0m"
 
-# Get absolute root directory
-$RootDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
-$BackendDir = Join-Path $RootDir "backend"
-$FrontendDir = Join-Path $RootDir "frontend"
+# Move to script directory
+Set-Location -Path $PSScriptRoot
 
-Write-Yellow "▶️  Starting full-stack application..."
+Write-Host "${YELLOW}▶️  Starting full-stack application...${NC}"
 
 # -------------------------
-# Start FastAPI backend
+# Start FastAPI backend (optional)
 # -------------------------
-# Write-Yellow "🔧 Setting up backend (FastAPI)..."
-# Set-Location $BackendDir
+# Write-Host "${YELLOW}🔧 Setting up backend (FastAPI)...${NC}"
+# Set-Location -Path "$PSScriptRoot/backend"
 
-# Write-Yellow "📦 Installing Python dependencies..."
+# Write-Host "${YELLOW}📦 Installing Python dependencies (make sure venv is activated)...${NC}"
 # pip install -r requirements.txt
 
-# Write-Green "✅ Backend dependencies installed."
-# Write-Yellow "🚀 Launching FastAPI server on http://localhost:8000 ..."
-# Start-Process powershell -ArgumentList "uvicorn main:app --reload --host 0.0.0.0 --port 8000" -NoNewWindow
+# Write-Host "${GREEN}✅ Backend dependencies installed.${NC}"
+# Write-Host "${YELLOW}🚀 Launching FastAPI server on http://localhost:8000 ...${NC}"
+# Start-Process -NoNewWindow -PassThru -FilePath "uvicorn" -ArgumentList "main:app", "--reload", "--host", "0.0.0.0", "--port", "8000" | Out-Null
+# $backendPid = Get-Process -Name "uvicorn" | Select-Object -First 1 -ExpandProperty Id
 
 # -------------------------
-# Start Vite React frontend
+# Start Vite React frontend with Electron
 # -------------------------
-Write-Yellow "🎨 Setting up frontend (Vite + React)..."
-Set-Location $FrontendDir
+Write-Host "${YELLOW}🎨 Setting up frontend (Vite + React)...${NC}"
+Set-Location -Path "$PSScriptRoot/frontend"
 
-Write-Yellow "📦 Installing frontend dependencies..."
+Write-Host "${YELLOW}📦 Installing frontend dependencies...${NC}"
 npm install
 
-Write-Green "✅ Frontend dependencies installed."
-Write-Yellow "🚀 Launching Vite dev server on http://localhost:5173 ..."
-Start-Process powershell -ArgumentList "npm run dev" -NoNewWindow
+Write-Host "${GREEN}✅ Frontend dependencies installed.${NC}"
+Write-Host "${YELLOW}🚀 Launching Vite development server on http://localhost:5173 ...${NC}"
+Start-Process -NoNewWindow -FilePath "npm" -ArgumentList "run", "dev"
+Write-Host "${YELLOW}⏳ Waiting for Vite server to start...${NC}"
+
+# Wait for Vite port 5173 to open
+while (-not (Test-NetConnection -ComputerName "localhost" -Port 5173 -InformationLevel Quiet)) {
+    Start-Sleep -Milliseconds 500
+}
+
+Write-Host "${GREEN}✅ Vite server is up! Launching Electron...${NC}"
+Start-Process -NoNewWindow -FilePath "npm" -ArgumentList "run", "electron"
+$electronPid = Get-Process -Name "electron" | Select-Object -First 1 -ExpandProperty Id
 
 # -------------------------
-# Info
+# Final Info
 # -------------------------
-Write-Green "✅ All systems running!"
-# Write-Yellow "📡 FastAPI API:     http://localhost:8000"
-Write-Yellow "🌐 Frontend App:    http://localhost:5173"
-Write-Yellow "📌 Use Task Manager or Ctrl+C in individual shells to stop servers."
+Write-Host "${GREEN}✅ All systems running!${NC}"
+# Write-Host "${YELLOW}📡 FastAPI API:     ${NC}http://localhost:8000"
+Write-Host "${YELLOW}🌐 Frontend App:    ${NC}http://localhost:5173"
+Write-Host "${YELLOW}📌 Use Task Manager or Stop Electron manually to end.${NC}"
