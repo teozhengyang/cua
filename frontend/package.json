@@ -8,8 +8,8 @@
     "dev": "vite",
     "lint": "eslint .",
     "preview": "vite preview",
-    "start": "react-scripts start",
-    "build": "react-scripts build",
+    "start": "vite",
+    "build": "vite build",
     "electron": "ELECTRON_DISABLE_GPU=1 electron ."
   },
   "dependencies": {

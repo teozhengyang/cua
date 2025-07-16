@@ -34,7 +34,6 @@ This repository contains a collection of agents designed to interact with comput
 ### Frontend
 - Add websocket support for execute_command endpoint
 - Implement results after initial models check
-- Move from React to Electron for better desktop integration
 
 ### Models
 - Ensure models are callable from backend

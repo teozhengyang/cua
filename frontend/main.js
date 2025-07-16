@@ -1,10 +1,14 @@
 import { app, BrowserWindow } from 'electron';
+import path from 'path';
 import os from 'os';
 import { execSync } from 'child_process';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 let mainWindow;
 
-// Optional: Auto-disable GPU if running in WSL
 function isWSL() {
   try {
     return os.release().toLowerCase().includes('microsoft') ||
@@ -14,7 +18,6 @@ function isWSL() {
   }
 }
 
-// 💡 Disable GPU to prevent OpenGL/ANGLE issues in WSL2
 if (isWSL()) {
   console.log('⚠️ Running in WSL. Disabling GPU acceleration...');
   app.commandLine.appendSwitch('disable-gpu');
@@ -31,23 +34,21 @@ function createWindow() {
     }
   });
 
-  mainWindow.loadURL('http://localhost:5173'); // Load your React app
+  // 👇 Load the index.html from the dist folder
+  const indexPath = path.join(__dirname, 'dist/index.html');
+  mainWindow.loadFile(indexPath);
 
-  mainWindow.on('closed', function () {
+  mainWindow.on('closed', () => {
     mainWindow = null;
   });
 }
 
 app.on('ready', createWindow);
 
-app.on('window-all-closed', function () {
-  if (process.platform !== 'darwin') {
-    app.quit();
-  }
+app.on('window-all-closed', () => {
+  if (process.platform !== 'darwin') app.quit();
 });
 
-app.on('activate', function () {
-  if (mainWindow === null) {
-    createWindow();
-  }
+app.on('activate', () => {
+  if (mainWindow === null) createWindow();
 });

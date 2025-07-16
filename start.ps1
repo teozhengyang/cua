@@ -1,57 +1,54 @@
-# Exit on error
+# Exit immediately if a command fails
 $ErrorActionPreference = "Stop"
 
-# Define colors
-$GREEN = "`e[32m"
-$YELLOW = "`e[33m"
-$NC = "`e[0m"
+# Colors
+$green = "`e[32m"
+$yellow = "`e[33m"
+$nc = "`e[0m"
 
 # Move to script directory
 Set-Location -Path $PSScriptRoot
 
-Write-Host "${YELLOW}▶️  Starting full-stack application...${NC}"
+Write-Host "${yellow}▶️  Starting full-stack application...${nc}"
 
 # -------------------------
 # Start FastAPI backend (optional)
 # -------------------------
-# Write-Host "${YELLOW}🔧 Setting up backend (FastAPI)...${NC}"
-# Set-Location -Path "$PSScriptRoot/backend"
+<# 
+Write-Host "${yellow}🔧 Setting up backend (FastAPI)...${nc}"
+Set-Location -Path "./backend"
 
-# Write-Host "${YELLOW}📦 Installing Python dependencies (make sure venv is activated)...${NC}"
-# pip install -r requirements.txt
+Write-Host "${yellow}📦 Installing Python dependencies (make sure venv is activated)...${nc}"
+pip install -r requirements.txt
 
-# Write-Host "${GREEN}✅ Backend dependencies installed.${NC}"
-# Write-Host "${YELLOW}🚀 Launching FastAPI server on http://localhost:8000 ...${NC}"
-# Start-Process -NoNewWindow -PassThru -FilePath "uvicorn" -ArgumentList "main:app", "--reload", "--host", "0.0.0.0", "--port", "8000" | Out-Null
-# $backendPid = Get-Process -Name "uvicorn" | Select-Object -First 1 -ExpandProperty Id
+Write-Host "${green}✅ Backend dependencies installed.${nc}"
+Write-Host "${yellow}🚀 Launching FastAPI server on http://localhost:8000 ...${nc}"
+Start-Process -NoNewWindow -FilePath "uvicorn" -ArgumentList "main:app", "--reload", "--host", "0.0.0.0", "--port", "8000"
+
+Set-Location -Path $PSScriptRoot
+#>
 
 # -------------------------
-# Start Vite React frontend with Electron
+# Build Vite React frontend and launch Electron
 # -------------------------
-Write-Host "${YELLOW}🎨 Setting up frontend (Vite + React)...${NC}"
-Set-Location -Path "$PSScriptRoot/frontend"
+Write-Host "${yellow}🎨 Setting up frontend (Vite + React)...${nc}"
+Set-Location -Path "./frontend"
 
-Write-Host "${YELLOW}📦 Installing frontend dependencies...${NC}"
+Write-Host "${yellow}📦 Installing frontend dependencies...${nc}"
 npm install
 
-Write-Host "${GREEN}✅ Frontend dependencies installed.${NC}"
-Write-Host "${YELLOW}🚀 Launching Vite development server on http://localhost:5173 ...${NC}"
-Start-Process -NoNewWindow -FilePath "npm" -ArgumentList "run", "dev"
-Write-Host "${YELLOW}⏳ Waiting for Vite server to start...${NC}"
+Write-Host "${green}✅ Frontend dependencies installed.${nc}"
+Write-Host "${yellow}🔨 Building Vite app...${nc}"
+npm run build
 
-# Wait for Vite port 5173 to open
-while (-not (Test-NetConnection -ComputerName "localhost" -Port 5173 -InformationLevel Quiet)) {
-    Start-Sleep -Milliseconds 500
-}
-
-Write-Host "${GREEN}✅ Vite server is up! Launching Electron...${NC}"
+Write-Host "${green}✅ Build completed.${nc}"
+Write-Host "${yellow}🚀 Launching Electron app...${nc}"
 Start-Process -NoNewWindow -FilePath "npm" -ArgumentList "run", "electron"
-$electronPid = Get-Process -Name "electron" | Select-Object -First 1 -ExpandProperty Id
 
 # -------------------------
 # Final Info
 # -------------------------
-Write-Host "${GREEN}✅ All systems running!${NC}"
-# Write-Host "${YELLOW}📡 FastAPI API:     ${NC}http://localhost:8000"
-Write-Host "${YELLOW}🌐 Frontend App:    ${NC}http://localhost:5173"
-Write-Host "${YELLOW}📌 Use Task Manager or Stop Electron manually to end.${NC}"
+Write-Host "${green}✅ All systems running!${nc}"
+# Write-Host "${yellow}📡 FastAPI API:     ${nc}http://localhost:8000"
+Write-Host "${yellow}🖥️ Electron App:     ${nc}(served from dist/index.html)"
+Write-Host "${yellow}📌 Press Ctrl+C or close window to stop everything.${nc}"
