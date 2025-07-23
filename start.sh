@@ -14,7 +14,7 @@ cd "$(dirname "$0")"
 echo -e "${YELLOW}▶️  Starting full-stack application...${NC}"
 
 # -------------------------
-# Start FastAPI backend (optional, uncomment if needed)
+# Start FastAPI backend (optional)
 # -------------------------
 # echo -e "${YELLOW}🔧 Setting up backend (FastAPI)...${NC}"
 # cd backend
@@ -27,7 +27,7 @@ echo -e "${YELLOW}▶️  Starting full-stack application...${NC}"
 # cd ..
 
 # -------------------------
-# Build Vite React frontend and launch Electron
+# Start main frontend + Electron
 # -------------------------
 echo -e "${YELLOW}🎨 Setting up frontend (Vite + React)...${NC}"
 cd frontend
@@ -43,16 +43,37 @@ echo -e "${GREEN}✅ Build completed.${NC}"
 echo -e "${YELLOW}🚀 Launching Electron app...${NC}"
 npm run electron &
 FRONTEND_PID=$!
+cd ..
+
+# -------------------------
+# Start applications/test Electron app
+# -------------------------
+echo -e "${YELLOW}🧪 Setting up test application in 'applications'...${NC}"
+cd applications
+
+echo -e "${YELLOW}📦 Installing app dependencies...${NC}"
+npm install
+
+echo -e "${GREEN}✅ App dependencies installed.${NC}"
+echo -e "${YELLOW}🔨 Building test application...${NC}"
+npm run build
+
+echo -e "${GREEN}✅ Test app build completed.${NC}"
+echo -e "${YELLOW}🚀 Launching Electron test app...${NC}"
+npm run electron &
+APP_PID=$!
+cd ..
 
 # -------------------------
 # Final Info and Cleanup
 # -------------------------
-trap "echo -e '\n${YELLOW}🛑 Stopping Electron...'; kill $FRONTEND_PID" EXIT
+trap "echo -e '\n${YELLOW}🛑 Stopping Electron apps...'; kill $FRONTEND_PID $APP_PID" EXIT
 
 echo -e "${GREEN}✅ All systems running!${NC}"
 # echo -e "${YELLOW}📡 FastAPI API:     ${NC}http://localhost:8000"
-echo -e "${YELLOW}🖥️ Electron App:     ${NC}(served from dist/index.html)"
+echo -e "${YELLOW}🖥️ Main Electron App:     ${NC}(frontend/dist/index.html)"
+echo -e "${YELLOW}🧪 Test Electron App:     ${NC}(applications/dist/index.html)"
 echo -e "${YELLOW}📌 Press Ctrl+C to stop everything.${NC}"
 
-# Wait for processes
+# Wait for all background processes
 wait

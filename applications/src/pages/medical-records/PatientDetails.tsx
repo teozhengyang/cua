@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import { toast } from 'react-hot-toast'; 
 import { mockPatients } from '../../utils/mockPatients';
 
 const PatientDetails = () => {
@@ -9,47 +10,53 @@ const PatientDetails = () => {
   const [diagnosis, setDiagnosis] = useState('');
   const [records, setRecords] = useState(patient?.diagnoses ?? []);
 
-  if (!patient) return <p className="p-6">Patient not found.</p>;
+  if (!patient) return <p className="p-6 text-lg">Patient not found.</p>;
 
   const handleAdd = () => {
     if (diagnosis.trim()) {
       const updated = [...records, diagnosis];
       setRecords(updated);
       setDiagnosis('');
-      alert('Diagnosis added!');
+      toast.success('Diagnosis added successfully!', {
+        duration: 4000, 
+      });
     }
   };
 
   return (
-    <div className="min-h-screen p-6 bg-base-200">
-      <Link to="/medical" className="btn btn-sm btn-ghost mb-4">← Back</Link>
+    <div className="min-h-screen p-8 bg-base-200 text-base-content">
+      <Link to="/medical" className="btn btn-sm btn-ghost mb-6 text-lg">← Back</Link>
 
-      <h1 className="text-2xl font-bold mb-2">{patient.name}</h1>
-      <p>ID: {patient.id}</p>
-      <p>Age: {patient.age}</p>
+      <div className="bg-base-100 rounded-xl p-6 shadow-md max-w-3xl mx-auto">
+        <h1 className="text-3xl font-bold mb-2">{patient.name}</h1>
+        <p className="text-lg">ID: <span className="font-medium">{patient.id}</span></p>
+        <p className="text-lg mb-6">Age: <span className="font-medium">{patient.age}</span></p>
 
-      <div className="mt-6">
-        <h2 className="text-xl font-semibold mb-2">Medical Records</h2>
-        {records.length === 0 ? (
-          <p className="italic text-gray-500">No records yet.</p>
-        ) : (
-          <ul className="list-disc pl-6 text-sm mb-4">
-            {records.map((r, i) => <li key={i}>{r}</li>)}
-          </ul>
-        )}
+        <div>
+          <h2 className="text-2xl font-semibold mb-3">Medical Records</h2>
+          {records.length === 0 ? (
+            <p className="italic text-gray-500 text-base">No records yet.</p>
+          ) : (
+            <ul className="list-disc pl-6 text-base mb-6 space-y-1">
+              {records.map((r, i) => <li key={i}>{r}</li>)}
+            </ul>
+          )}
 
-        <div className="form-control max-w-md">
-         <label className="label">Add Diagnosis</label>
-         <textarea
-           className="textarea textarea-bordered h-24"
-           value={diagnosis}
-           onChange={(e) => setDiagnosis(e.target.value)}
-           placeholder="e.g. Asthma, detailed notes..."
-         />
-         <button className="btn btn-primary mt-2" onClick={handleAdd}>
-           Add
-         </button>
-       </div>
+          <div className="form-control max-w-2xl">
+            <div className="flex flex-col gap-3">
+              <label className="label block text-lg font-semibold mb-0">Add Diagnosis</label>
+              <textarea
+                className="textarea textarea-bordered text-base h-40"
+                value={diagnosis}
+                onChange={(e) => setDiagnosis(e.target.value)}
+                placeholder="e.g. Asthma with wheezing and shortness of breath..."
+              />
+              <button className="btn btn-primary text-base" onClick={handleAdd}>
+                Add Diagnosis
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

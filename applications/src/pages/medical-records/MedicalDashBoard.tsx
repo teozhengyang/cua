@@ -11,7 +11,7 @@ const MedicalDashboard = () => {
 
   return (
     <div className="min-h-screen p-6 bg-base-200">
-      <h1 className="text-3xl font-bold mb-4">Medical Records Dashboard</h1>
+      <h1 className="text-3xl font-bold mb-4">Medical Records</h1>
 
       <div className="form-control mb-6 max-w-md">
         <input
