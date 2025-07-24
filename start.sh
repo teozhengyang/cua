@@ -14,17 +14,17 @@ cd "$(dirname "$0")"
 echo -e "${YELLOW}▶️  Starting full-stack application...${NC}"
 
 # -------------------------
-# Start FastAPI backend (optional)
+# Start FastAPI backend
 # -------------------------
-# echo -e "${YELLOW}🔧 Setting up backend (FastAPI)...${NC}"
-# cd backend
-# echo -e "${YELLOW}📦 Installing Python dependencies (make sure venv is activated)...${NC}"
-# pip install -r requirements.txt
-# echo -e "${GREEN}✅ Backend dependencies installed.${NC}"
-# echo -e "${YELLOW}🚀 Launching FastAPI server on http://localhost:8000 ...${NC}"
-# uvicorn main:app --reload --host 0.0.0.0 --port 8000 &
-# BACKEND_PID=$!
-# cd ..
+echo -e "${YELLOW}🔧 Setting up backend (FastAPI)...${NC}"
+cd backend
+echo -e "${YELLOW}📦 Installing Python dependencies (make sure venv is activated)...${NC}"
+pip install -r requirements.txt
+echo -e "${GREEN}✅ Backend dependencies installed.${NC}"
+echo -e "${YELLOW}🚀 Launching FastAPI server on http://localhost:8000 ...${NC}"
+python run.py &
+BACKEND_PID=$!
+cd ..
 
 # -------------------------
 # Start main frontend + Electron
@@ -67,13 +67,13 @@ cd ..
 # -------------------------
 # Final Info and Cleanup
 # -------------------------
-trap "echo -e '\n${YELLOW}🛑 Stopping Electron apps...'; kill $FRONTEND_PID $APP_PID" EXIT
+trap "echo -e '\n${YELLOW}🛑 Stopping all apps...${NC}'; kill $BACKEND_PID $FRONTEND_PID $APP_PID 2>/dev/null || true" EXIT
 
 echo -e "${GREEN}✅ All systems running!${NC}"
-# echo -e "${YELLOW}📡 FastAPI API:     ${NC}http://localhost:8000"
+echo -e "${YELLOW}📡 FastAPI API:     ${NC}http://localhost:8000"
 echo -e "${YELLOW}🖥️ Main Electron App:     ${NC}(frontend/dist/index.html)"
 echo -e "${YELLOW}🧪 Test Electron App:     ${NC}(applications/dist/index.html)"
 echo -e "${YELLOW}📌 Press Ctrl+C to stop everything.${NC}"
 
 # Wait for all background processes
-wait
+wait $BACKEND_PID $FRONTEND_PID $APP_PID
