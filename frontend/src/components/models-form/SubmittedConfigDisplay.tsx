@@ -1,27 +1,20 @@
 import type { SubmittedConfigProps } from "../../types/ModelsFormType";
 
-const SubmittedConfigDisplay = ({ config }: SubmittedConfigProps) => (
-  <div className="p-4 mt-2 bg-base-300 rounded-lg shadow max-h-40 overflow-auto text-sm">
-    <h3 className="font-semibold mb-2">Models to Use</h3>
-    <pre className="whitespace-pre-wrap">
-      {JSON.stringify(
-        {
-          modelType: config.modelType,
-          plannerModel: config.plannerModel,
-          actorModel: config.actorModel,
-          plannerApiKey: config.plannerApiKey ? "••••••••" : "(empty)",
-          actorApiKey:
-            config.modelType === "unified"
-              ? "(same as planner)"
-              : config.actorApiKey
-              ? "••••••••"
-              : "(empty)",
-        },
-        null,
-        2
-      )}
-    </pre>
-  </div>
-);
+const SubmittedConfigDisplay = ({ config }: SubmittedConfigProps) => {
+  return (
+    <div className="p-4 mt-2 bg-base-300 rounded-lg shadow max-h-40 overflow-auto text-sm">
+      {/* Display the submitted configuration details */}
+      <div className="space-y-2">
+        <h3 className="text-lg font-semibold mb-2">Current Configuration</h3>
+        <div>
+          <strong>Planner Model:</strong> {config.plannerModel}
+        </div>
+        <div>
+          <strong>Actor Model:</strong> {config.actorModel}
+        </div>
+      </div>
+    </div>
+  );
+};
 
 export default SubmittedConfigDisplay;

@@ -5,19 +5,25 @@ import FormActionButtons from "./FormActionButtons";
 import SubmittedConfigDisplay from "./SubmittedConfigDisplay";
 import type { ModelsFormProps } from "../../types/ModelsFormType";
 
-const ModelsForm: React.FC<ModelsFormProps> = ({ onSubmit }) => {
+const ModelsForm = ({ onSubmit } : ModelsFormProps)  => {
+  // Custom hook useModelsFormState to manage form state and submission
   const form = useModelsFormState(onSubmit);
 
   return (
-    <form
-      onSubmit={form.handleSubmit}
-      className="space-y-4 p-6 bg-base-200 rounded-lg shadow-md w-full"
-    >
-      <ModelSelectionSection {...form} />
-      <ApiKeySection {...form} />
-      <FormActionButtons {...form} submittedConfig={!!form.submittedConfig} />
-      {form.submittedConfig && <SubmittedConfigDisplay config={form.submittedConfig} />}
-    </form>
+    <>
+      <h2 className="text-2xl font-bold mb-4 text-center">Configure Agent Models</h2>
+      {/* Form to select models and API keys */}
+      <form
+        onSubmit={form.handleSubmit}
+        className="space-y-4 p-6 bg-base-200 rounded-lg shadow-md w-full"
+      >
+        <ModelSelectionSection {...form} />
+        <ApiKeySection {...form} />
+        <FormActionButtons {...form} submittedConfig={!!form.submittedConfig} />
+        {form.submittedConfig && <SubmittedConfigDisplay config={form.submittedConfig} />}
+      </form>
+    </>
+
   );
 };
 
