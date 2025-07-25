@@ -3,24 +3,24 @@ import { handleModelSubmit } from "../services/ModelsFormService";
 import type { ModelFormConfig } from "../types/ModelsFormType";
 
 export const useModelsFormState = (onSubmit?: (config: ModelFormConfig) => void) => {
-  const [modelType, setModelType] = useState("unified");
-  const [plannerModel, setPlannerModel] = useState("claude");
-  const [actorModel, setActorModel] = useState("claude");
+  const [modelType, setModelType] = useState("Unified");
+  const [plannerModel, setPlannerModel] = useState("Claude");
+  const [actorModel, setActorModel] = useState("Claude");
   const [plannerApiKey, setPlannerApiKey] = useState("");
   const [actorApiKey, setActorApiKey] = useState("");
   const [submittedConfig, setSubmittedConfig] = useState<ModelFormConfig | null>(null);
 
   useEffect(() => {
-    if (modelType === "unified") {
-      setPlannerModel("claude");
-      setActorModel("claude");
+    if (modelType === "Unified") {
+      setPlannerModel("Claude");
+      setActorModel("Claude");
     } else {
-      setPlannerModel("gpt");
-      setActorModel("showUI");
+      setPlannerModel("GPT");
+      setActorModel("ShowUI");
     }
   }, [modelType]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     const config: ModelFormConfig = {
@@ -28,18 +28,24 @@ export const useModelsFormState = (onSubmit?: (config: ModelFormConfig) => void)
       plannerModel,
       actorModel,
       plannerApiKey,
-      actorApiKey: modelType === "unified" ? plannerApiKey : actorApiKey,
+      actorApiKey: modelType === "Unified" ? plannerApiKey : actorApiKey,
     };
 
-    handleModelSubmit(config);
+    try {
+      await handleModelSubmit(config);
+    } catch (error) {
+      console.error("Error submitting model configuration:", error);
+      alert(error instanceof Error ? error.message : "An unexpected error occurred");
+      return;
+     }
     setSubmittedConfig(config);
     if (onSubmit) onSubmit(config);
   };
 
   const handleClear = () => {
-    setModelType("unified");
-    setPlannerModel("claude");
-    setActorModel("claude");
+    setModelType("Unified");
+    setPlannerModel("");
+    setActorModel("");
     setPlannerApiKey("");
     setActorApiKey("");
     setSubmittedConfig(null);

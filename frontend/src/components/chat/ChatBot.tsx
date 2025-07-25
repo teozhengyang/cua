@@ -1,19 +1,27 @@
-// components/chat/ChatBot.tsx
-import React from "react";
 import { useChatBotState } from "../../hooks/useChatBotState";
 import MessageBubble from "./MessageBubble";
 
-const ChatBot: React.FC = () => {
+const ChatBot = () => {
+  // Use hook useChatBotState to manage chat state
   const { messages, input, setInput, isStreaming, sendMessage } = useChatBotState();
 
   return (
-    <div className="p-4 space-y-4 bg-base-100 rounded-lg shadow h-full">
+    <div className="space-y-4 bg-base-100 rounded-lg shadow h-full">
+
+      {/* Title of the chat component */}
+      <h2 className="text-2xl font-bold text-center mb-4">Chat with Agent</h2>
+
+      {/* Display messages in a scrollable area */}
+      {/* Each message is rendered using the MessageBubble component */}
       <div className="space-y-2 max-h-[60vh] overflow-y-auto">
         {messages.map((msg, idx) => (
           <MessageBubble key={idx + msg.message} {...msg} />
         ))}
       </div>
 
+      {/* Input area for user to type messages */}
+      {/* Input field and send button */}
+      {/* Input is disabled when isStreaming is true to prevent multiple submissions */}
       <div className="flex gap-2">
         <input
           className="input input-bordered w-full"
@@ -27,6 +35,7 @@ const ChatBot: React.FC = () => {
           Send
         </button>
       </div>
+      
     </div>
   );
 };

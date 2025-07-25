@@ -5,6 +5,7 @@ from app.core.logging import setup_logging
 import logging
 
 from app.api.routes import planner
+from fastapi.middleware.cors import CORSMiddleware 
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +23,14 @@ def create_app() -> FastAPI:
         version=settings.version,
         docs_url="/docs",
         redoc_url="/redoc"
+    )
+    
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
     )
     
     # Include routers
