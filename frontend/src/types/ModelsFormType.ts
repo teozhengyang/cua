@@ -14,6 +14,7 @@ export interface ModelFormConfig {
 
 export interface ModelsFormProps {
   onSubmit?: (config: ModelFormConfig) => void;
+  onClose?: () => void;
 }
 
 export interface ModelSelectionSectionProps {
