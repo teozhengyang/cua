@@ -11,7 +11,7 @@ const ModelsForm = ({ onSubmit } : ModelsFormProps)  => {
 
   return (
     <>
-      <h2 className="text-2xl font-bold mb-4 text-center">Configure Agent Models</h2>
+      <h2 className="text-2xl font-bold mb-4 text-center">Models Configuration</h2>
       {/* Form to select models and API keys */}
       <form
         onSubmit={form.handleSubmit}

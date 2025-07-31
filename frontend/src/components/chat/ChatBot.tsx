@@ -9,7 +9,7 @@ const ChatBot = () => {
     <div className="space-y-4 bg-base-100 rounded-lg shadow h-full">
 
       {/* Title of the chat component */}
-      <h2 className="text-2xl font-bold text-center mb-4">Chat with Agent</h2>
+      <h2 className="text-2xl font-bold text-center mb-4">Chat</h2>
 
       {/* Display messages in a scrollable area */}
       {/* Each message is rendered using the MessageBubble component */}

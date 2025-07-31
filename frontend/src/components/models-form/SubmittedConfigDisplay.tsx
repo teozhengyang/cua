@@ -7,11 +7,20 @@ const SubmittedConfigDisplay = ({ config }: SubmittedConfigProps) => {
       <div className="space-y-2">
         <h3 className="text-lg font-semibold mb-2">Current Configuration</h3>
         <div>
-          <strong>Planner Model:</strong> {config.plannerModel}
+          <strong>Model Type:</strong> {config.modelType}
         </div>
-        <div>
-          <strong>Actor Model:</strong> {config.actorModel}
-        </div>
+        
+        {config.modelType === "Planner + Actor" && (
+          <>
+            <div>
+              <strong>Planner Model:</strong> {config.plannerModel}
+            </div>
+
+            <div>
+              <strong>Actor Model:</strong> {config.actorModel}
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

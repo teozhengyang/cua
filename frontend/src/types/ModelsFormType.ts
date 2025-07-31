@@ -1,9 +1,15 @@
 export interface ModelFormConfig {
   modelType: string;
-  plannerModel: string;
-  actorModel: string;
-  plannerApiKey: string;
-  actorApiKey: string;
+  // Unified model config
+  claudeApiKey?: string;
+  // Planner + Actor config
+  plannerModel?: string;
+  plannerApiKey?: string;
+  plannerFolderPath?: string;
+  qwenDeploymentType?: 'local' | 'api-based';
+  actorModel?: string;
+  actorFolderPath?: string;
+  actorServerUrl?: string;
 }
 
 export interface ModelsFormProps {
@@ -14,17 +20,28 @@ export interface ModelSelectionSectionProps {
   modelType: string;
   plannerModel: string;
   actorModel: string;
+  qwenDeploymentType: 'local' | 'api-based';
   setModelType: (value: string) => void;
   setPlannerModel: (value: string) => void;
   setActorModel: (value: string) => void;
+  setQwenDeploymentType: (type: 'local' | 'api-based') => void;
 }
 
 export interface ApiKeySectionProps {
   modelType: string;
+  plannerModel: string;
+  actorModel: string;
+  qwenDeploymentType: 'local' | 'api-based';
+  claudeApiKey: string;
   plannerApiKey: string;
-  actorApiKey: string;
+  plannerFolderPath: string;
+  actorFolderPath: string;
+  actorServerUrl: string;
+  setClaudeApiKey: (key: string) => void;
   setPlannerApiKey: (key: string) => void;
-  setActorApiKey: (key: string) => void;
+  setPlannerFolderPath: (path: string) => void;
+  setActorFolderPath: (path: string) => void;
+  setActorServerUrl: (url: string) => void;
 }
 
 export interface FormActionButtonsProps {
@@ -35,9 +52,13 @@ export interface FormActionButtonsProps {
 export interface SubmittedConfigProps {
   config: {
     modelType: string;
-    plannerModel: string;
-    actorModel: string;
+    claudeApiKey?: string;
+    plannerModel?: string;
     plannerApiKey?: string;
-    actorApiKey?: string;
+    plannerFolderPath?: string;
+    qwenDeploymentType?: 'local' | 'api-based';
+    actorModel?: string;
+    actorFolderPath?: string;
+    actorServerUrl?: string;
   };
 }

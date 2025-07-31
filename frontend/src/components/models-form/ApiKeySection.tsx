@@ -2,38 +2,108 @@ import type { ApiKeySectionProps } from "../../types/ModelsFormType";
 
 const ApiKeySection = ({
   modelType,
+  plannerModel,
+  actorModel,
+  qwenDeploymentType,
+  claudeApiKey,
   plannerApiKey,
-  actorApiKey,
+  plannerFolderPath,
+  actorFolderPath,
+  actorServerUrl,
+  setClaudeApiKey,
   setPlannerApiKey,
-  setActorApiKey
+  setPlannerFolderPath,
+  setActorFolderPath,
+  setActorServerUrl
 }: ApiKeySectionProps) => {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 items-end">
-      {/* Input field for Claude/Planner API Key */}
-      <div className="form-control w-full">
-        <label className="label label-text font-medium mb-1">
-          {modelType === "Unified" ? "Claude API Key" : "Planner API Key"}
-        </label>
-        <input
-          type="password"
-          className="input input-bordered w-full"
-          placeholder="Enter API key"
-          value={plannerApiKey}
-          onChange={(e) => setPlannerApiKey(e.target.value)}
-        />
-      </div>
-      
-      {/* Input field for Actor API Key, only shown if modelType is not Unified */}
-      {modelType !== "Unified" && (
+    <div className="space-y-4">
+      {/* Unified Model Configuration */}
+      {modelType === "Unified" && (
         <div className="form-control w-full">
-          <label className="label label-text font-medium mb-1">Actor API Key</label>
+          <label className="label label-text font-medium mb-1">Claude API Key</label>
           <input
             type="password"
             className="input input-bordered w-full"
-            placeholder="Enter API key"
-            value={actorApiKey}
-            onChange={(e) => setActorApiKey(e.target.value)}
+            placeholder="Enter Claude API key"
+            value={claudeApiKey}
+            onChange={(e) => setClaudeApiKey(e.target.value)}
           />
+        </div>
+      )}
+
+      {/* Planner + Actor Configuration */}
+      {modelType === "Planner + Actor" && (
+        <div className="space-y-4">
+          {/* Planner Configuration */}
+          <div className="p-4 bg-base-300 rounded-lg">
+            <h4 className="font-medium mb-3">Planner Configuration</h4>
+            {plannerModel === "GPT" && (
+              <div className="form-control w-full">
+                <label className="label label-text font-medium mb-1">GPT API Key</label>
+                <input
+                  type="password"
+                  className="input input-bordered w-full"
+                  placeholder="Enter GPT API key"
+                  value={plannerApiKey}
+                  onChange={(e) => setPlannerApiKey(e.target.value)}
+                />
+              </div>
+            )}
+            {plannerModel === "Qwen" && qwenDeploymentType === "local" && (
+              <div className="form-control w-full">
+                <label className="label label-text font-medium mb-1">Qwen Local Folder Path</label>
+                <input
+                  type="text"
+                  className="input input-bordered w-full"
+                  placeholder="Enter local folder path for Qwen"
+                  value={plannerFolderPath}
+                  onChange={(e) => setPlannerFolderPath(e.target.value)}
+                />
+              </div>
+            )}
+            {plannerModel === "Qwen" && qwenDeploymentType === "api-based" && (
+              <div className="form-control w-full">
+                <label className="label label-text font-medium mb-1">Qwen API Key</label>
+                <input
+                  type="password"
+                  className="input input-bordered w-full"
+                  placeholder="Enter Qwen API key"
+                  value={plannerApiKey}
+                  onChange={(e) => setPlannerApiKey(e.target.value)}
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Actor Configuration */}
+          <div className="p-4 bg-base-300 rounded-lg">
+            <h4 className="font-medium mb-3">Actor Configuration</h4>
+            {actorModel === "ShowUI" && (
+              <div className="form-control w-full">
+                <label className="label label-text font-medium mb-1">ShowUI Folder Path</label>
+                <input
+                  type="text"
+                  className="input input-bordered w-full"
+                  placeholder="Enter ShowUI folder path"
+                  value={actorFolderPath}
+                  onChange={(e) => setActorFolderPath(e.target.value)}
+                />
+              </div>
+            )}
+            {actorModel === "UI-TARS" && (
+              <div className="form-control w-full">
+                <label className="label label-text font-medium mb-1">UI-TARS Server URL</label>
+                <input
+                  type="url"
+                  className="input input-bordered w-full"
+                  placeholder="Enter UI-TARS server URL"
+                  value={actorServerUrl}
+                  onChange={(e) => setActorServerUrl(e.target.value)}
+                />
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>
