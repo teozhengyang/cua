@@ -6,6 +6,7 @@ import type { ModelFormConfig } from "../../types/ModelsFormType";
 
 // Type for the form state returned by useModelsFormState
 type ModelsFormState = {
+  // State
   modelType: string;
   plannerModel: string;
   actorModel: string;
@@ -16,6 +17,11 @@ type ModelsFormState = {
   actorFolderPath: string;
   actorServerUrl: string;
   submittedConfig: ModelFormConfig | null;
+  validationErrors: string[];
+  isSubmitting: boolean;
+  isFormValid: boolean;
+  
+  // Setters
   setModelType: (value: string) => void;
   setPlannerModel: (value: string) => void;
   setActorModel: (value: string) => void;
@@ -25,8 +31,11 @@ type ModelsFormState = {
   setPlannerFolderPath: (value: string) => void;
   setActorFolderPath: (value: string) => void;
   setActorServerUrl: (value: string) => void;
+  
+  // Actions
   handleSubmit: (e: React.FormEvent) => Promise<void>;
   handleClear: () => void;
+  clearValidationErrors: () => void;
 };
 
 interface ModelsFormContentProps {
@@ -44,7 +53,12 @@ const ModelsFormContent = ({ isVisible, form }: ModelsFormContentProps) => {
       <form onSubmit={form.handleSubmit} className="p-6 space-y-6">
         <ModelSelectionSection {...form} />
         <ApiKeySection {...form} />
-        <FormActionButtons {...form} submittedConfig={!!form.submittedConfig} />
+        <FormActionButtons 
+          handleClear={form.handleClear}
+          submittedConfig={!!form.submittedConfig}
+          isSubmitting={form.isSubmitting}
+          isFormValid={form.isFormValid}
+        />
         {form.submittedConfig && <SubmittedConfigDisplay config={form.submittedConfig} />}
       </form>
     </div>

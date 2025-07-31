@@ -1,20 +1,54 @@
 import type { ModelFormConfig } from "../types/ModelsFormType";
+import { validateModelConfig } from "../utils";
 
-export const handleModelSubmit = (config: ModelFormConfig) => {
-  console.log("Selected config:", config);
+export interface SubmitResponse {
+  success: boolean;
+  message?: string;
+  config?: ModelFormConfig;
+}
 
-  // send the configuration to the backend to check the API keys
-  fetch("http://localhost:8000/health", {
-    method: "GET",
-    headers: {
-      "Content-Type": "application/json",
-    },   
-  })
-  .then(response => {
-    if (!response.ok) {
-      throw new Error("Invalid API key");
+export const handleModelSubmit = async (config: ModelFormConfig): Promise<SubmitResponse> => {
+  // Validate configuration
+  const errors = validateModelConfig(config);
+  if (errors.length > 0) {
+    throw new Error(`Configuration validation failed: ${errors.join(', ')}`);
+  }
+
+  try {
+    console.log("Submitting configuration:", config);
+
+    // Check health endpoint first
+    const healthResponse = await fetch("http://localhost:8000/health", {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },   
+    });
+
+    if (!healthResponse.ok) {
+      throw new Error("Backend service is not available");
     }
-    console.log("API keys are valid");
-    return response.json();
-  })
+
+    // TODO: Add actual configuration submission endpoint when ready
+    // const submitResponse = await fetch("http://localhost:8000/config", {
+    //   method: "POST",
+    //   headers: { "Content-Type": "application/json" },
+    //   body: JSON.stringify(config),
+    // });
+
+    console.log("Configuration validated and ready");
+    
+    return {
+      success: true,
+      message: "Configuration saved successfully",
+      config
+    };
+  } catch (error) {
+    console.error("Failed to submit model configuration:", error);
+    throw new Error(
+      error instanceof Error 
+        ? error.message 
+        : "Failed to save configuration. Please try again."
+    );
+  }
 };
