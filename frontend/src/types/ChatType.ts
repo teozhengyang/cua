@@ -1,6 +1,7 @@
 export interface Message {
-  role: string;
+  role: "user" | "agent";
   message: string;
+  timestamp?: string;
 }
 
-export type MessageBubbleProps = Message
+export type MessageBubbleProps = Message;

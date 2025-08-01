@@ -6,7 +6,7 @@ This repository contains a collection of agents designed to interact with comput
 
 ## Technologies
 - FastAPI
-- React OR Electron
+- TypeScript + React + Vite + Electron
 
 ## How to Run
 1. Clone the repository:
@@ -20,20 +20,3 @@ This repository contains a collection of agents designed to interact with comput
    ./start.ps1  # For Windows PowerShell
    ./start.sh   # For Linux/MacOS
    ```
-
-## TODO
-
-### Backend
-
-- Implement FastAPI endpoints (/check_models, /execute_command)
-- Add websocket support for execute_command endpoint
-
-### Executor
-- Ensure executors and tools are callable from backend
-
-### Frontend
-- Add websocket support for execute_command endpoint
-- Implement results after initial models check
-
-### Models
-- Ensure models are callable from backend
