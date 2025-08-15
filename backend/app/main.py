@@ -1,10 +1,9 @@
 from fastapi import FastAPI
 from app.config.settings import Settings
-from app.api.routes import health
+from app.api.routes import health, planner, computer_use
 from app.core.logging import setup_logging
 import logging
 
-from app.api.routes import planner
 from fastapi.middleware.cors import CORSMiddleware 
 
 logger = logging.getLogger(__name__)
@@ -36,6 +35,7 @@ def create_app() -> FastAPI:
     # Include routers
     app.include_router(health.router, tags=["Health"])
     app.include_router(planner.router, prefix="/planner", tags=["Planner"])
+    app.include_router(computer_use.router, prefix="/computer", tags=["Computer Use"])
     
     logger.info(f"FastAPI application created: {settings.title} v{settings.version}")
     
