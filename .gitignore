@@ -8,3 +8,6 @@
 # Ignore virtual environment directories
 **/venv/
 **/.env
+
+# Ignore tmp
+**/tmp/

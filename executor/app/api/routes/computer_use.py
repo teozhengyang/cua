@@ -21,7 +21,7 @@ async def take_screenshot(
         result = await computer_service.take_screenshot()
         return ComputerActionResponse(
             success=True,
-            output=result.output,
+            output=result.output or "",
             base64_image=getattr(result, 'base64_image', None)
         )
     except ActorServiceError as e:
@@ -46,7 +46,7 @@ async def click_at_coordinates(
         result = await computer_service.click_at_coordinates(x, y)
         return ComputerActionResponse(
             success=True,
-            output=result.output,
+            output=result.output or "",
             base64_image=getattr(result, 'base64_image', None)
         )
     except ActorServiceError as e:
@@ -70,7 +70,7 @@ async def type_text(
         result = await computer_service.type_text(request.text)
         return ComputerActionResponse(
             success=True,
-            output=result.output,
+            output=result.output or "",
             base64_image=getattr(result, 'base64_image', None)
         )
     except ActorServiceError as e:
@@ -94,7 +94,7 @@ async def scroll_page(
         result = await computer_service.scroll(direction, amount)
         return ComputerActionResponse(
             success=True,
-            output=result.output,
+            output=result.output or "",
             base64_image=getattr(result, 'base64_image', None)
         )
     except ActorServiceError as e:
@@ -130,7 +130,7 @@ async def execute_tool_use(
         return ToolUseResponse(
             success=True,
             tool_use_id=request.tool_use_id,
-            output=result.output,
+            output=result.output or "",
             base64_image=getattr(result, 'base64_image', None)
         )
     except ActorServiceError as e:
