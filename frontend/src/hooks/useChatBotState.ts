@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo } from "react";
 import type { Message } from "../types/ChatType";
-import { sendChat } from "../services/ChatBotService";
+import { chatStreamService, type StreamUpdate } from "../services/ChatStreamService";
 import { TYPING_INDICATOR } from "../constants";
 import { sanitizeInput, formatTimestamp } from "../utils";
 
@@ -9,6 +9,7 @@ export const useChatBotState = () => {
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [currentStatus, setCurrentStatus] = useState<string>("");
 
   // Memoized empty state check
   const hasMessages = useMemo(() => messages.length > 0, [messages.length]);
@@ -17,12 +18,82 @@ export const useChatBotState = () => {
     setMessages(prev => [...prev, message]);
   }, []);
 
+  const updateLastMessage = useCallback((newText: string) => {
+    setMessages(prev => {
+      if (prev.length === 0) return prev;
+      const lastMessage = prev[prev.length - 1];
+      if (lastMessage.role === "agent") {
+        return [
+          ...prev.slice(0, -1),
+          { ...lastMessage, message: newText }
+        ];
+      }
+      return prev;
+    });
+  }, []);
+
   const removeTypingIndicator = useCallback(() => {
     setMessages(prev => prev.filter(msg => msg.message !== TYPING_INDICATOR));
   }, []);
 
+  const handleStreamUpdate = useCallback((update: StreamUpdate) => {
+    switch (update.type) {
+      case 'status':
+        setCurrentStatus(update.message || "");
+        break;
+        
+      case 'user_message':
+        // User message already added, just update status
+        setCurrentStatus("Processing your request...");
+        break;
+        
+      case 'assistant_message':
+        removeTypingIndicator();
+        addMessage({
+          role: "agent",
+          message: update.message || "",
+          timestamp: formatTimestamp()
+        });
+        setCurrentStatus("");
+        break;
+        
+      case 'tool_execution':
+        setCurrentStatus(`Executing ${update.tool_name}...`);
+        // Optionally add a tool execution indicator message
+        addMessage({
+          role: "agent", 
+          message: `🔧 Executing ${update.tool_name}...`,
+          timestamp: formatTimestamp()
+        });
+        break;
+        
+      case 'tool_complete':
+        setCurrentStatus(`Completed ${update.tool_name}`);
+        // Update the last tool execution message with completion
+        updateLastMessage(`✅ Completed ${update.tool_name}: ${update.result_summary}`);
+        break;
+        
+      case 'tool_error':
+        setCurrentStatus(`Error in ${update.tool_name}`);
+        updateLastMessage(`❌ Error in ${update.tool_name}: ${update.message}`);
+        break;
+        
+      case 'conversation_complete':
+        setCurrentStatus("Conversation completed");
+        removeTypingIndicator();
+        break;
+        
+      case 'error':
+        setError(update.message || "Unknown error occurred");
+        removeTypingIndicator();
+        setCurrentStatus("");
+        break;
+    }
+  }, [addMessage, updateLastMessage, removeTypingIndicator]);
+
   const handleAgentResponse = useCallback(async (userInput: string) => {
     setIsStreaming(true);
+    setCurrentStatus("Starting conversation...");
     
     // Add typing indicator
     addMessage({ 
@@ -32,21 +103,32 @@ export const useChatBotState = () => {
     });
 
     try {
-      const responses = await sendChat(userInput);
-
-      setMessages(prev => {
-        const withoutTyping = prev.filter(msg => msg.message !== TYPING_INDICATOR);
-        return [
-          ...withoutTyping,
-          ...responses.map((r): Message => ({ 
-            role: "agent", 
-            message: r,
+      await chatStreamService.sendChatStream(
+        userInput,
+        handleStreamUpdate,
+        () => {
+          setIsStreaming(false);
+          setCurrentStatus("");
+          removeTypingIndicator();
+        },
+        (errorMessage: string) => {
+          setError(errorMessage);
+          setIsStreaming(false);
+          setCurrentStatus("");
+          removeTypingIndicator();
+          
+          // Add error message to chat
+          addMessage({
+            role: "agent",
+            message: "Sorry, I encountered an error while processing your request. Please try again.",
             timestamp: formatTimestamp()
-          })),
-        ];
-      });
+          });
+        }
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to get response from agent");
+      setIsStreaming(false);
+      setCurrentStatus("");
       removeTypingIndicator();
       
       // Add error message to chat
@@ -55,10 +137,8 @@ export const useChatBotState = () => {
         message: "Sorry, I encountered an error while processing your request. Please try again.",
         timestamp: formatTimestamp()
       });
-    } finally {
-      setIsStreaming(false);
     }
-  }, [addMessage, removeTypingIndicator]);
+  }, [addMessage, removeTypingIndicator, handleStreamUpdate]);
 
   const sendMessage = useCallback(async () => {
     if (!input.trim() || isStreaming) return;
@@ -80,6 +160,8 @@ export const useChatBotState = () => {
   const clearMessages = useCallback(() => {
     setMessages([]);
     setError(null);
+    setCurrentStatus("");
+    chatStreamService.disconnect();
   }, []);
 
   const clearError = useCallback(() => {
@@ -93,6 +175,7 @@ export const useChatBotState = () => {
     isStreaming,
     error,
     hasMessages,
+    currentStatus,
     sendMessage,
     clearMessages,
     clearError,

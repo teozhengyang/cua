@@ -13,6 +13,7 @@ const ChatBot = memo(() => {
     isStreaming, 
     error,
     hasMessages,
+    currentStatus,
     sendMessage, 
     clearMessages, 
     clearError 
@@ -63,6 +64,16 @@ const ChatBot = memo(() => {
             errors={[error]} 
             onDismiss={clearError}
           />
+        </div>
+      )}
+
+      {/* Status Display */}
+      {isStreaming && currentStatus && (
+        <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+          <div className="flex items-center gap-2 text-sm text-blue-700 dark:text-blue-300">
+            <LoadingSpinner size="sm" />
+            <span>{currentStatus}</span>
+          </div>
         </div>
       )}
 

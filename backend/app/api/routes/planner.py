@@ -1,8 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from typing import Any, Dict
 import logging
 import asyncio
+import json
 
 from app.models.schemas import TextRequest, TextResponse
 from app.services.actor_service import ActorService
@@ -11,6 +12,54 @@ from app.core.exceptions import ActorServiceError
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+
+@router.post("/stream")
+async def process_message_stream(
+    request: TextRequest,
+    actor_service: ActorService = Depends(get_actor_service)
+):
+    """Process text with streaming updates as the agent executes."""
+    async def generate_stream():
+        try:
+            async for update in actor_service.process_text_with_tools_stream(request.text):
+                # Send Server-Sent Events format
+                yield f"data: {json.dumps(update)}\n\n"
+        except ActorServiceError as e:
+            logger.error(f"Actor service error: {str(e)}")
+            error_update = {
+                "type": "error",
+                "message": str(e),
+                "timestamp": asyncio.get_event_loop().time()
+            }
+            yield f"data: {json.dumps(error_update)}\n\n"
+        except Exception as e:
+            logger.error(f"Unexpected error processing stream: {str(e)}")
+            error_update = {
+                "type": "error", 
+                "message": "Internal server error",
+                "timestamp": asyncio.get_event_loop().time()
+            }
+            yield f"data: {json.dumps(error_update)}\n\n"
+        finally:
+            # Send completion event
+            completion_update = {
+                "type": "complete",
+                "timestamp": asyncio.get_event_loop().time()
+            }
+            yield f"data: {json.dumps(completion_update)}\n\n"
+
+    return StreamingResponse(
+        generate_stream(),
+        media_type="text/plain",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "Content-Type": "text/event-stream",
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Headers": "Cache-Control"
+        }
+    )
 
 
 @router.post("/", response_model=TextResponse)
