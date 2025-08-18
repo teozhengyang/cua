@@ -1,4 +1,4 @@
-import { memo, useCallback } from "react";
+import { memo, useCallback, useRef, useEffect } from "react";
 import { useChatBotState } from "../../hooks/useChatBotState";
 import MessageBubble from "./MessageBubble";
 import LoadingSpinner from "../common/LoadingSpinner";
@@ -17,6 +17,15 @@ const ChatBot = memo(() => {
     clearMessages, 
     clearError 
   } = useChatBotState();
+
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll to bottom when messages change
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages]);
 
   const handleInputKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -76,6 +85,8 @@ const ChatBot = memo(() => {
               <MessageBubble key={`${idx}-${msg.message}`} {...msg} />
             ))
           )}
+          {/* Invisible element to scroll to */}
+          <div ref={messagesEndRef} />
         </div>
       </div>
 
