@@ -24,7 +24,7 @@ from anthropic.types.beta import (
 from anthropic.types import TextBlock
 from anthropic.types.beta import BetaMessage, BetaTextBlock, BetaToolUseBlock
 
-from ..tools import BashTool, ComputerTool, EditTool, ToolCollection, ToolResult
+from .tool_definitions import BashTool, ComputerTool, EditTool, ToolCollection
 
 from PIL import Image
 from io import BytesIO

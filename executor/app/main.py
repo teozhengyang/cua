@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from app.config.settings import Settings
-from app.api.routes import health, planner
+from app.api.routes import computer_use
 from app.core.logging import setup_logging
 import logging
 
@@ -33,8 +33,7 @@ def create_app() -> FastAPI:
     )
     
     # Include routers
-    app.include_router(health.router, tags=["Health"])
-    app.include_router(planner.router, prefix="/planner", tags=["Planner"])
+    app.include_router(computer_use.router, prefix="/computer", tags=["Computer Use"])
     
     logger.info(f"FastAPI application created: {settings.title} v{settings.version}")
     

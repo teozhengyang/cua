@@ -6,7 +6,7 @@ import logging
 
 from app.config.settings import Settings
 from app.services.response_service import ResponseService
-from app.services.computer_use_service import ComputerUseService
+from app.services.executor_client import ExecutorClient
 from app.planner.anthropic_agent import AnthropicActor
 from app.core.exceptions import ActorServiceError
 
@@ -19,7 +19,7 @@ class ActorService:
     def __init__(self, settings: Settings):
         self.settings = settings
         self.response_service = ResponseService()
-        self.computer_use_service = ComputerUseService(settings)
+        self.executor_client = ExecutorClient(settings)
         self._actor = self._create_actor()
         self._conversation_history = []
         logger.info("ActorService initialized successfully")
@@ -78,9 +78,9 @@ class ActorService:
                         has_tool_use = True
                         logger.info(f"Executing tool: {content_block.name}")
                         
-                        # Execute the tool
+                        # Execute the tool via executor service
                         try:
-                            tool_result = await self.computer_use_service.execute_tool_use(content_block)
+                            tool_result = await self.executor_client.execute_tool_use(content_block)
                             
                             # Create tool result for conversation - ensure proper format
                             if hasattr(tool_result, 'base64_image') and tool_result.base64_image:
@@ -210,3 +210,19 @@ class ActorService:
     def get_conversation_length(self) -> int:
         """Get the number of messages in conversation history."""
         return len(self._conversation_history)
+    
+    async def get_available_tools(self) -> List[str]:
+        """Get list of available tools from executor service."""
+        try:
+            return await self.executor_client.get_available_tools()
+        except Exception as e:
+            logger.error(f"Error getting available tools: {str(e)}")
+            raise ActorServiceError(f"Failed to get available tools: {str(e)}")
+    
+    async def check_executor_health(self) -> bool:
+        """Check if the executor service is healthy."""
+        try:
+            return await self.executor_client.health_check()
+        except Exception as e:
+            logger.error(f"Error checking executor health: {str(e)}")
+            return False

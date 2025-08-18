@@ -6,11 +6,11 @@ class Settings(BaseSettings):
     """Application settings with environment variable support."""
     
     # API Configuration
-    title: str = "Computer Use Agent API"
-    description: str = "FastAPI backend for Computer Use Agent with Anthropic Claude integration"
+    title: str = "Executor"
+    description: str = "FastAPI backend for Executor with Anthropic Claude integration"
     version: str = "1.0.0"
     host: str = "0.0.0.0"
-    port: int = 8000
+    port: int = 8001
     debug: bool = True
 
     # Actor Configuration
@@ -25,9 +25,6 @@ class Settings(BaseSettings):
     # Logging Configuration
     log_level: str = "INFO"
     log_format: str = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-
-    # Executor Configuration
-    executor_url: str = "http://localhost:8001"
 
     class Config:
         env_file = ".env"

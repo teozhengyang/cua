@@ -19,6 +19,18 @@ $backend = Start-Process -PassThru -NoNewWindow -FilePath "cmd" -ArgumentList "/
 Set-Location -Path ".."
 
 # -------------------------
+# Start Executor service
+# -------------------------
+Write-Host "Setting up executor (FastAPI)..."
+Set-Location -Path "executor"
+Write-Host "Installing executor dependencies (make sure venv is activated)..."
+pip install -r requirements.txt
+Write-Host "Executor dependencies installed."
+Write-Host "Launching Executor server on http://localhost:8001 ..."
+$executor = Start-Process -PassThru -NoNewWindow -FilePath "cmd" -ArgumentList "/c", "python", "run.py"
+Set-Location -Path ".."
+
+# -------------------------
 # Start main frontend + Electron
 # -------------------------
 Write-Host "Setting up frontend (Vite + React)..."
@@ -72,7 +84,8 @@ Set-Location -Path ".."
 # Final Info
 # -------------------------
 Write-Host "All systems running!"
-Write-Host "FastAPI API: http://localhost:8000"
+Write-Host "FastAPI Backend: http://localhost:8000"
+Write-Host "FastAPI Executor: http://localhost:8001"
 Write-Host "Main Electron App: (frontend/dist/index.html)"
 Write-Host "Test Electron App: (applications/dist/index.html)"
 Write-Host "Press Ctrl+C or close this terminal to stop everything."
@@ -85,6 +98,8 @@ Write-Host "Press Ctrl+C to stop this script."
 
 try {
     $validProcesses = @()
+    if ($backend -and $backend.Id) { $validProcesses += $backend.Id }
+    if ($executor -and $executor.Id) { $validProcesses += $executor.Id }
     if ($frontend -and $frontend.Id) { $validProcesses += $frontend.Id }
     if ($app -and $app.Id) { $validProcesses += $app.Id }
     
