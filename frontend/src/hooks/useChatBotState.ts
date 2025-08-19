@@ -57,26 +57,32 @@ export const useChatBotState = () => {
         setCurrentStatus("");
         break;
         
-      case 'tool_execution':
-        setCurrentStatus(`Executing ${update.tool_name}...`);
+      case 'tool_execution': {
+        const executingAction = update.action || update.tool_name;
+        setCurrentStatus(`Executing ${executingAction}...`);
         // Optionally add a tool execution indicator message
         addMessage({
           role: "agent", 
-          message: `🔧 Executing ${update.tool_name}...`,
+          message: `🔧 Executing ${executingAction}...`,
           timestamp: formatTimestamp()
         });
         break;
+      }
         
-      case 'tool_complete':
-        setCurrentStatus(`Completed ${update.tool_name}`);
+      case 'tool_complete': {
+        const completedAction = update.action || update.tool_name;
+        setCurrentStatus(`Completed ${completedAction}`);
         // Update the last tool execution message with completion
-        updateLastMessage(`✅ Completed ${update.tool_name}: ${update.result_summary}`);
+        updateLastMessage(`✅ Completed ${completedAction}: ${update.result_summary}`);
         break;
+      }
         
-      case 'tool_error':
-        setCurrentStatus(`Error in ${update.tool_name}`);
-        updateLastMessage(`❌ Error in ${update.tool_name}: ${update.message}`);
+      case 'tool_error': {
+        const errorAction = update.action || update.tool_name;
+        setCurrentStatus(`Error in ${errorAction}`);
+        updateLastMessage(`❌ Error in ${errorAction}: ${update.message}`);
         break;
+      }
         
       case 'conversation_complete':
         setCurrentStatus("Conversation completed");

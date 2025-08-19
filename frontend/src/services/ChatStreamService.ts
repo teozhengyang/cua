@@ -5,6 +5,7 @@ export interface StreamUpdate {
   message?: string;
   tool_name?: string;
   tool_input?: Record<string, unknown>;
+  action?: string;
   result_summary?: string;
   total_responses?: number;
   timestamp: number;

@@ -105,12 +105,17 @@ class ActorService:
                         has_tool_use = True
                         logger.info(f"Executing tool: {content_block.name}")
                         
+                        # Extract action for more descriptive messages
+                        action = content_block.input.get('action', '') if isinstance(content_block.input, dict) else ''
+                        tool_description = f"{action}" if action else content_block.name
+                        
                         # Send tool execution status
                         yield {
                             "type": "tool_execution",
                             "tool_name": content_block.name,
                             "tool_input": content_block.input,
-                            "message": f"Executing...",
+                            "action": action,
+                            "message": f"Executing {tool_description}...",
                             "timestamp": time.time()
                         }
                         
@@ -122,7 +127,8 @@ class ActorService:
                             yield {
                                 "type": "tool_complete",
                                 "tool_name": content_block.name,
-                                "message": f"Completed {content_block.name}",
+                                "action": action,
+                                "message": f"Completed {tool_description}",
                                 "result_summary": str(tool_result.output)[:200] + "..." if len(str(tool_result.output)) > 200 else str(tool_result.output),
                                 "timestamp": time.time()
                             }
@@ -158,7 +164,8 @@ class ActorService:
                             yield {
                                 "type": "tool_error",
                                 "tool_name": content_block.name,
-                                "message": f"Error executing {content_block.name}: {str(e)}",
+                                "action": action,
+                                "message": f"Error executing {tool_description}: {str(e)}",
                                 "timestamp": time.time()
                             }
                             
