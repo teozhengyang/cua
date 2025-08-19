@@ -127,65 +127,110 @@ class ComputerTool(BaseAnthropicTool):
     def __init__(self, selected_screen: int = 0, is_scaling: bool = True):
         super().__init__()
 
-        # Get screen width and height using Windows command
         self.display_num = None
-        self.offset_x = 0
-        self.offset_y = 0
         self.selected_screen = selected_screen   
         self.is_scaling = is_scaling
+        
+        # Initialize offset values
+        self.offset_x = 0
+        self.offset_y = 0
+        
+        # Get screen dimensions and set up bbox consistently
         self.width, self.height = self.get_screen_size()  
         self.width, self.height = int(self.width), int(self.height)
 
-        # Path to cliclick
+        # Path to cliclick (for macOS)
         self.cliclick = "cliclick"
-        self.key_conversion = {"page_down": "pagedown",
-                               "page_up": "pageup",
-                               "super_l": "win",
-                               "super": "command",
-                               "escape": "esc"}
         
-        self.action_conversion = {"left click": "click",
-                                  "right click": "right_click"}
+        # Key and action mappings
+        self.key_conversion = {
+            "page_down": "pagedown",
+            "page_up": "pageup", 
+            "super_l": "win",
+            "super": "command",
+            "escape": "esc"
+        }
         
-        system = platform.system()        # Detect platform
+        self.action_conversion = {
+            "left click": "click",
+            "right click": "right_click"
+        }
+        
+        # Set up screen-specific configuration
+        system = platform.system()
+        
         if system == "Windows":
             screens = get_monitors()
             sorted_screens = sorted(screens, key=lambda s: s.x)
             if self.selected_screen < 0 or self.selected_screen >= len(screens):
-                raise IndexError("Invalid screen index.")
+                raise IndexError(f"Invalid screen index {self.selected_screen}. Available screens: 0-{len(screens)-1}")
+            
             screen = sorted_screens[self.selected_screen]
-            bbox = (screen.x, screen.y, screen.x + screen.width, screen.y + screen.height)
-
+            self.offset_x = screen.x
+            self.offset_y = screen.y
+            self.bbox = (screen.x, screen.y, screen.x + screen.width, screen.y + screen.height)
+            
+            print(f"Windows setup - Screen {self.selected_screen}: {screen.width}x{screen.height} at offset ({self.offset_x}, {self.offset_y})")
+            
         elif system == "Darwin":  # macOS
-            max_displays = 32  # Maximum number of displays to handle
+            max_displays = 32
             active_displays = Quartz.CGGetActiveDisplayList(max_displays, None, None)[1]
             screens = []
+            
             for display_id in active_displays:
                 bounds = Quartz.CGDisplayBounds(display_id)
                 screens.append({
-                    'id': display_id, 'x': int(bounds.origin.x), 'y': int(bounds.origin.y),
-                    'width': int(bounds.size.width), 'height': int(bounds.size.height),
-                    'is_primary': Quartz.CGDisplayIsMain(display_id)  # Check if this is the primary display
+                    'id': display_id, 
+                    'x': int(bounds.origin.x), 
+                    'y': int(bounds.origin.y),
+                    'width': int(bounds.size.width), 
+                    'height': int(bounds.size.height),
+                    'is_primary': Quartz.CGDisplayIsMain(display_id)
                 })
+                
             sorted_screens = sorted(screens, key=lambda s: s['x'])
             if self.selected_screen < 0 or self.selected_screen >= len(screens):
-                raise IndexError("Invalid screen index.")
+                raise IndexError(f"Invalid screen index {self.selected_screen}. Available screens: 0-{len(screens)-1}")
+                
             screen = sorted_screens[self.selected_screen]
-            bbox = (screen['x'], screen['y'], screen['x'] + screen['width'], screen['y'] + screen['height'])
-        else:  # Linux or other OS
-            cmd = "xrandr | grep ' primary' | awk '{print $4}'"
-            try:
-                output = subprocess.check_output(cmd, shell=True).decode()
-                resolution = output.strip().split()[0]
-                width, height = map(int, resolution.split('x'))
-                bbox = (0, 0, width, height)  # Assuming single primary screen for simplicity
-            except subprocess.CalledProcessError:
-                raise RuntimeError("Failed to get screen resolution on Linux.")
+            self.offset_x = screen['x']
+            self.offset_y = screen['y']
+            self.bbox = (screen['x'], screen['y'], screen['x'] + screen['width'], screen['y'] + screen['height'])
             
-        self.offset_x = screen['x'] if system == "Darwin" else screen.x
-        self.offset_y = screen['y'] if system == "Darwin" else screen.y
-        self.bbox = bbox
+            print(f"macOS setup - Screen {self.selected_screen}: {screen['width']}x{screen['height']} at offset ({self.offset_x}, {self.offset_y})")
+            
+        else:  # Linux or other OS
+            # For simplicity, assume single screen for Linux
+            self.offset_x = 0
+            self.offset_y = 0
+            self.bbox = (0, 0, self.width, self.height)
+            
+            print(f"Linux setup - Single screen: {self.width}x{self.height} at offset ({self.offset_x}, {self.offset_y})")
         
+
+    def _process_coordinates(self, coordinate, action_name):
+        """Helper method to process and validate coordinates consistently."""
+        if coordinate is None:
+            return None, None
+            
+        if not isinstance(coordinate, (list, tuple)) or len(coordinate) != 2:
+            raise ToolError(f"{coordinate} must be a tuple of length 2")
+        if not all(isinstance(i, int) for i in coordinate):
+            raise ToolError(f"{coordinate} must be a tuple of integers")
+        
+        # Scale coordinates if scaling is enabled
+        if self.is_scaling:
+            x, y = self.scale_coordinates(ScalingSource.API, coordinate[0], coordinate[1])
+        else:
+            x, y = coordinate
+        
+        # Add screen offset
+        final_x = x + self.offset_x
+        final_y = y + self.offset_y
+        
+        print(f"{action_name}: API({coordinate[0]}, {coordinate[1]}) -> Scaled({x}, {y}) -> Final({final_x}, {final_y})")
+        
+        return final_x, final_y
 
     async def __call__(
         self,
@@ -197,43 +242,27 @@ class ComputerTool(BaseAnthropicTool):
         scroll_amount: int = 10,
         **kwargs,
     ):  
-        print(f"action: {action}, text: {text}, coordinate: {coordinate}")
+        print(f"Action: {action}, text: {text}, coordinate: {coordinate}")
         action = self.action_conversion.get(action, action)
         
+        # Handle mouse movement and drag actions
         if action in ("mouse_move", "left_click_drag"):
             if coordinate is None:
                 raise ToolError(f"coordinate is required for {action}")
             if text is not None:
                 raise ToolError(f"text is not accepted for {action}")
-            if not isinstance(coordinate, (list, tuple)) or len(coordinate) != 2:
-                raise ToolError(f"{coordinate} must be a tuple of length 2")
-            # if not all(isinstance(i, int) and i >= 0 for i in coordinate):
-            if not all(isinstance(i, int) for i in coordinate):
-                raise ToolError(f"{coordinate} must be a tuple of non-negative ints")
-            
-            if self.is_scaling:
-                x, y = self.scale_coordinates(
-                    ScalingSource.API, coordinate[0], coordinate[1]
-                )
-            else:
-                x, y = coordinate
-
-            # print(f"scaled_coordinates: {x}, {y}")
-            # print(f"offset: {self.offset_x}, {self.offset_y}")
-            
-            x += self.offset_x
-            y += self.offset_y
-
-            print(f"mouse move to {x}, {y}")
+                
+            x, y = self._process_coordinates(coordinate, action)
             
             if action == "mouse_move":
                 pyautogui.moveTo(x, y)
                 return ToolResult(output=f"Moved mouse to ({x}, {y})")
             elif action == "left_click_drag":
                 current_x, current_y = pyautogui.position()
-                pyautogui.dragTo(x, y, duration=0.5)  # Adjust duration as needed
+                pyautogui.dragTo(x, y, duration=0.5)
                 return ToolResult(output=f"Dragged mouse from ({current_x}, {current_y}) to ({x}, {y})")
 
+        # Handle keyboard actions (unchanged)
         if action in ("key", "type"):
             if text is None:
                 raise ToolError(f"text is required for {action}")
@@ -243,64 +272,46 @@ class ComputerTool(BaseAnthropicTool):
                 raise ToolError(output=f"{text} must be a string")
 
             if action == "key":
-                # Handle key combinations
                 keys = text.split('+')
                 for key in keys:
                     key = key.strip().lower()
                     key = self.key_conversion.get(key, key)
-                    pyautogui.keyDown(key)  # Press down each key
+                    pyautogui.keyDown(key)
                 for key in reversed(keys):
                     key = key.strip().lower()
                     key = self.key_conversion.get(key, key)
-                    pyautogui.keyUp(key)    # Release each key in reverse order
+                    pyautogui.keyUp(key)
                 return ToolResult(output=f"Pressed keys: {text}")
             
             elif action == "type":
-                pyautogui.typewrite(text, interval=TYPING_DELAY_MS / 1000)  # Convert ms to seconds
+                pyautogui.typewrite(text, interval=TYPING_DELAY_MS / 1000)
                 screenshot_base64 = (await self.screenshot()).base64_image
                 return ToolResult(output=text, base64_image=screenshot_base64)
-           
-        # minimum modification to avoid disrupting the original flow, will be optimized later
-        # for support of Claude 3.7 Computer Use API
-        if action in ("scroll"):
-            if coordinate is None:
+    
+        # Handle scroll actions with coordinate support
+        if action == "scroll":
+            if coordinate is not None:
+                x, y = self._process_coordinates(coordinate, action)
+                if scroll_direction in ("up", "down"):
+                    pyautogui.scroll(scroll_amount if scroll_direction == "up" else -scroll_amount, x, y)
+                elif scroll_direction in ("left", "right"):
+                    pyautogui.hscroll(scroll_amount if scroll_direction == "right" else -scroll_amount, x, y)
+                return ToolResult(output=f"Scrolled {scroll_direction} at ({x}, {y})")
+            else:
                 if scroll_direction in ("up", "down"):
                     pyautogui.scroll(scroll_amount if scroll_direction == "up" else -scroll_amount)
                 elif scroll_direction in ("left", "right"):
                     pyautogui.hscroll(scroll_amount if scroll_direction == "right" else -scroll_amount)
                 return ToolResult(output=f"Scrolled {scroll_direction}")
-            else:
-                if self.is_scaling:
-                    x, y = self.scale_coordinates(
-                        ScalingSource.API, coordinate[0], coordinate[1]
-                    )
-                else:
-                    x, y = coordinate
-
-                # print(f"scaled_coordinates: {x}, {y}")
-                # print(f"offset: {self.offset_x}, {self.offset_y}")
                 
-                if scroll_direction in ("up", "down"):
-                    pyautogui.scroll(scroll_amount if scroll_direction == "up" else -scroll_amount, x, y)
-                elif scroll_direction in ("left", "right"):
-                    pyautogui.hscroll(scroll_amount if scroll_direction == "right" else -scroll_amount, x, y)
-                return ToolResult(output=f"Scrolled {scroll_direction} at {x}, {y}")
-            
+        # Handle click actions
         if action in ("left_click", "right_click", "double_click", "middle_click", "left_press"):
-            if coordinate is not None:
-                if self.is_scaling:
-                    x, y = self.scale_coordinates(
-                        ScalingSource.API, coordinate[0], coordinate[1]
-                    )
-                else:
-                    x, y = coordinate
-
-                # print(f"scaled_coordinates: {x}, {y}")
-                # print(f"offset: {self.offset_x}, {self.offset_y}")
+            if text is not None:
+                raise ToolError(f"text is not accepted for {action}")
                 
-                x += self.offset_x
-                y += self.offset_y
-
+            if coordinate is not None:
+                x, y = self._process_coordinates(coordinate, action)
+                
                 if action == "left_click":
                     pyautogui.click(x, y)
                 elif action == "right_click":
@@ -313,49 +324,32 @@ class ComputerTool(BaseAnthropicTool):
                     pyautogui.mouseDown(x, y)
                     time.sleep(1)
                     pyautogui.mouseUp(x, y)
-                return ToolResult(output=f"Performed {action} at {x}, {y}")
+                return ToolResult(output=f"Performed {action} at ({x}, {y})")
             else:
-                pass
-        
-        if action in (
-            "left_click",
-            "right_click",
-            "double_click",
-            "middle_click",
-            "screenshot",
-            "cursor_position",
-            "left_press",
-        ):
-            if text is not None:
-                raise ToolError(f"text is not accepted for {action}")
-            # if coordinate is not None:
-            #     raise ToolError(f"coordinate is not accepted for {action}")
+                # Click at current mouse position
+                if action == "left_click":
+                    pyautogui.click()
+                elif action == "right_click":
+                    pyautogui.rightClick()
+                elif action == "double_click":
+                    pyautogui.doubleClick()
+                elif action == "middle_click":
+                    pyautogui.middleClick()
+                elif action == "left_press":
+                    pyautogui.mouseDown()
+                    time.sleep(1)
+                    pyautogui.mouseUp()
+                return ToolResult(output=f"Performed {action} at current position")
 
-            if action == "screenshot":
-                return await self.screenshot()
-            elif action == "cursor_position":
-                x, y = pyautogui.position()
-                x, y = self.scale_coordinates(ScalingSource.COMPUTER, x, y)
-                return ToolResult(output=f"X={x},Y={y}")
-            # minimum modification to avoid disrupting the original flow, will be optimized later
-            else:
-                if coordinate is None:
-                    if action == "left_click":
-                        pyautogui.click()
-                    elif action == "right_click":
-                        pyautogui.rightClick()
-                    elif action == "middle_click":
-                        pyautogui.middleClick()
-                    elif action == "double_click":
-                        pyautogui.doubleClick()
-                    elif action == "left_press":
-                        pyautogui.mouseDown()
-                        time.sleep(1)
-                        pyautogui.mouseUp()
-                    return ToolResult(output=f"Performed {action}")
-                else:
-                    pass
-            
+        # Handle other actions
+        if action == "screenshot":
+            return await self.screenshot()
+        elif action == "cursor_position":
+            x, y = pyautogui.position()
+            # Convert screen coordinates to API coordinates for consistency
+            x, y = self.scale_coordinates(ScalingSource.COMPUTER, x - self.offset_x, y - self.offset_y)
+            return ToolResult(output=f"X={x},Y={y}")
+                
         raise ToolError(f"Invalid action: {action}")
     
     
@@ -581,33 +575,49 @@ class ComputerTool(BaseAnthropicTool):
         x, y = int(x), int(y)
         if not self._scaling_enabled:
             return x, y
+        
         ratio = self.width / self.height
         target_dimension = None
 
+        # Find the best matching target dimension based on aspect ratio
         for target_name, dimension in MAX_SCALING_TARGETS.items():
-            # allow some error in the aspect ratio - not ratios are exactly 16:9
+            # Allow some error in the aspect ratio - not all ratios are exactly 16:9
             if abs(dimension["width"] / dimension["height"] - ratio) < 0.02:
-                if dimension["width"] < self.width:
+                # FIXED: Change condition to check if we need to scale DOWN (target < actual)
+                # This means we're scaling a large screen to a smaller target
+                if dimension["width"] < self.width and dimension["height"] < self.height:
                     target_dimension = dimension
                     self.target_dimension = target_dimension
-                    # print(f"target_dimension: {target_dimension}")
-                break
+                    print(f"Found matching target_dimension: {target_dimension} for screen {self.width}x{self.height}")
+                    break
 
         if target_dimension is None:
-            # TODO: currently we force the target to be WXGA (16:10), when it cannot find a match
+            # If no match found, use WXGA as default
             target_dimension = MAX_SCALING_TARGETS["WXGA"]
-            self.target_dimension = MAX_SCALING_TARGETS["WXGA"]
+            self.target_dimension = target_dimension
+            print(f"Using default target_dimension: {target_dimension} for screen {self.width}x{self.height}")
 
-        # should be less than 1
+        # Calculate scaling factors
         x_scaling_factor = target_dimension["width"] / self.width
         y_scaling_factor = target_dimension["height"] / self.height
+        
+        print(f"Scaling factors: x={x_scaling_factor:.3f}, y={y_scaling_factor:.3f}")
+        
         if source == ScalingSource.API:
-            if x > self.width or y > self.height:
-                raise ToolError(f"Coordinates {x}, {y} are out of bounds")
-            # scale up
-            return round(x / x_scaling_factor), round(y / y_scaling_factor)
-        # scale down
-        return round(x * x_scaling_factor), round(y * y_scaling_factor)
+            # API coordinates are in the scaled-down space, need to scale UP to actual screen
+            if x > target_dimension["width"] or y > target_dimension["height"]:
+                raise ToolError(f"API coordinates {x}, {y} are out of bounds for target {target_dimension}")
+            # Scale up to actual screen coordinates
+            scaled_x = round(x / x_scaling_factor)
+            scaled_y = round(y / y_scaling_factor)
+            print(f"API->Screen: ({x}, {y}) -> ({scaled_x}, {scaled_y})")
+            return scaled_x, scaled_y
+        else:
+            # COMPUTER coordinates are in actual screen space, need to scale DOWN for display
+            scaled_x = round(x * x_scaling_factor)
+            scaled_y = round(y * y_scaling_factor)
+            print(f"Screen->Display: ({x}, {y}) -> ({scaled_x}, {scaled_y})")
+            return scaled_x, scaled_y
 
     def get_screen_size(self):
         if platform.system() == "Windows":

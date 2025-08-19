@@ -24,12 +24,46 @@ class ComputerTool(BaseAnthropicTool):
     
     def to_params(self) -> BetaToolUnionParam:
         return {
-            "type": "computer_20241022",
             "name": "computer",
-            "display_width_px": 1920,
-            "display_height_px": 1080,
-            "display_number": self.selected_screen,
+            "type": "custom",
+            "description": "Control the mouse, keyboard, and screen using simulated actions.",
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "action": {
+                        "type": "string",
+                        "description": "The action to perform. Examples: mouse_move, left_click, type, key, screenshot, scroll.",
+                        "enum": [
+                            "key", "type", "mouse_move", "left_click", "left_click_drag",
+                            "right_click", "middle_click", "double_click", "screenshot",
+                            "cursor_position", "left_press", "scroll"
+                        ]
+                    },
+                    "text": {
+                        "type": "string",
+                        "description": "The text or key combination to type (used for type/key actions)."
+                    },
+                    "coordinate": {
+                        "type": "array",
+                        "items": {"type": "integer"},
+                        "minItems": 2,
+                        "maxItems": 2,
+                        "description": "The (x, y) coordinates on the screen."
+                    },
+                    "scroll_direction": {
+                        "type": "string",
+                        "enum": ["up", "down", "left", "right"],
+                        "description": "Direction to scroll."
+                    },
+                    "scroll_amount": {
+                        "type": "integer",
+                        "description": "How much to scroll."
+                    }
+                },
+                "required": ["action"]
+            }
         }
+
 
 
 class BashTool(BaseAnthropicTool):
@@ -37,8 +71,19 @@ class BashTool(BaseAnthropicTool):
     
     def to_params(self) -> BetaToolUnionParam:
         return {
-            "type": "bash_20241022",
             "name": "bash",
+            "type": "custom",
+            "description": "Run shell commands and return stdout/stderr.",
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "command": {
+                        "type": "string",
+                        "description": "The shell command to execute"
+                    }
+                },
+                "required": ["command"]
+            }
         }
 
 
@@ -47,8 +92,16 @@ class EditTool(BaseAnthropicTool):
     
     def to_params(self) -> BetaToolUnionParam:
         return {
-            "type": "text_editor_20241022",
             "name": "str_replace_editor",
+            "type": "custom",
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "text": {"type": "string", "description": "The original text"},
+                    "instructions": {"type": "string", "description": "How to edit the text"}
+                },
+                "required": ["text", "instructions"]
+            }
         }
 
 

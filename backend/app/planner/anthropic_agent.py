@@ -32,7 +32,7 @@ import gradio as gr
 from typing import Dict
 
 
-BETA_FLAG = "computer-use-2024-10-22"
+BETA_FLAG = "computer-use-2025-01-24"
 
 
 class APIProvider(StrEnum):
@@ -42,9 +42,7 @@ class APIProvider(StrEnum):
 
 
 PROVIDER_TO_DEFAULT_MODEL_NAME: dict[APIProvider, str] = {
-    APIProvider.ANTHROPIC: "claude-3-5-sonnet-20241022",
-    APIProvider.BEDROCK: "anthropic.claude-3-5-sonnet-20241022-v2:0",
-    APIProvider.VERTEX: "claude-3-5-sonnet-v2@20241022",
+    APIProvider.ANTHROPIC: "claude-sonnet-4-20250514",
 }
 
 
@@ -121,7 +119,7 @@ class AnthropicActor:
             model=self.model,
             system=self.system,
             tools=self.tool_collection.to_params(),
-            betas=["computer-use-2024-10-22"],
+            betas=["computer-use-2024-10-22"], 
         )
 
         self.api_response_callback(cast(APIResponse[BetaMessage], raw_response))
@@ -130,10 +128,16 @@ class AnthropicActor:
         print(f"AnthropicActor response: {response}")
 
         self.total_token_usage += response.usage.input_tokens + response.usage.output_tokens
-        self.total_cost += (response.usage.input_tokens * 3 / 1000000 + response.usage.output_tokens * 15 / 1000000)
+        
+        # Updated pricing for Claude Sonnet 4 (check current pricing on Anthropic's website)
+        input_cost_per_token = 15 / 1000000  # $15 per million input tokens
+        output_cost_per_token = 75 / 1000000  # $75 per million output tokens
+        
+        self.total_cost += (response.usage.input_tokens * input_cost_per_token + 
+                           response.usage.output_tokens * output_cost_per_token)
         
         if self.print_usage:
-            print(f"Claude total token usage so far: {self.total_token_usage}, total cost so far: $USD{self.total_cost}")
+            print(f"Claude total token usage so far: {self.total_token_usage}, total cost so far: $USD{self.total_cost:.4f}")
         
         return response
 

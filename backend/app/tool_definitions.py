@@ -24,7 +24,7 @@ class ComputerTool(BaseAnthropicTool):
     
     def to_params(self) -> BetaToolUnionParam:
         return {
-            "type": "computer_20241022",
+            "type": "computer_20250124",
             "name": "computer",
             "display_width_px": 1920,
             "display_height_px": 1080,
@@ -37,7 +37,7 @@ class BashTool(BaseAnthropicTool):
     
     def to_params(self) -> BetaToolUnionParam:
         return {
-            "type": "bash_20241022",
+            "type": "bash_20250124",
             "name": "bash",
         }
 
@@ -47,7 +47,7 @@ class EditTool(BaseAnthropicTool):
     
     def to_params(self) -> BetaToolUnionParam:
         return {
-            "type": "text_editor_20241022",
+            "type": "text_editor_20250728",
             "name": "str_replace_editor",
         }
 
