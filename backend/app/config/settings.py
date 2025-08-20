@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     max_tokens: int = 4096
     only_n_most_recent_images: int = 10
     selected_screen: int = 0
-    summary_threshold: int = 5
+    summary_threshold: int = 10
 
     # Logging Configuration
     log_level: str = "INFO"

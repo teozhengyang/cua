@@ -1,184 +1,18 @@
 from anthropic.types import TextBlock
 from anthropic.types.beta import BetaMessage, BetaTextBlock, BetaToolUseBlock, BetaMessageParam
-from typing import List, AsyncGenerator, Dict, Any, Optional
+from typing import List, AsyncGenerator, Dict, Any, Optional, Tuple
 from functools import partial
 import logging
 import time
-from datetime import datetime
 
 from app.config.settings import Settings
 from app.services.response_service import ResponseService
 from app.services.executor_client import ExecutorClient
 from app.planner.anthropic_agent import AnthropicActor
 from app.core.exceptions import ActorServiceError
+from app.services.summary_service import SummaryService
 
 logger = logging.getLogger(__name__)
-
-
-class ConversationSummarizer:
-    """Handles conversation summarization logic."""
-    
-    def __init__(self, actor: AnthropicActor):
-        self.actor = actor
-    
-    def create_summary(self, messages: List[BetaMessageParam]) -> str:
-        """Create a summary of the conversation history."""
-        try:
-            # Create a summarization prompt
-            conversation_text = self._format_conversation_for_summary(messages)
-            
-            summary_prompt = f"""
-            Please create a concise summary of this computer use conversation between a user and an AI assistant.
-            
-            Focus on:
-            1. The main task or goal the user is trying to achieve
-            2. Key computer actions already taken (screenshots, clicks, typing, scrolling, etc.)
-            3. Current state/progress toward the goal
-            4. Any important context needed for continuing the task
-            5. What has been accomplished so far
-            
-            Keep the summary under 500 words but include all essential context for continuing the computer use session.
-            
-            Conversation to summarize:
-            {conversation_text}
-            
-            Summary:
-            """
-            
-            summary_messages = [{
-                "role": "user", 
-                "content": [TextBlock(type="text", text=summary_prompt)]
-            }]
-            
-            # Use a separate API call for summarization (won't interfere with tool execution)
-            response = self.actor(messages=summary_messages)
-            
-            # Extract summary text
-            summary = ""
-            for block in response.content:
-                if isinstance(block, BetaTextBlock):
-                    summary += block.text
-            
-            return summary.strip()
-            
-        except Exception as e:
-            logger.error(f"Error creating summary: {str(e)}")
-            # Return a basic summary if AI summarization fails
-            return self._create_basic_summary(messages)
-    
-    def _format_conversation_for_summary(self, messages: List[BetaMessageParam]) -> str:
-        """Format conversation messages for summarization."""
-        formatted = []
-        
-        for msg in messages:
-            role = msg["role"]
-            content = msg["content"]
-            
-            if isinstance(content, str):
-                formatted.append(f"{role.upper()}: {content}")
-            elif isinstance(content, list):
-                text_parts = []
-                tool_parts = []
-                
-                for item in content:
-                    if isinstance(item, dict):
-                        if item.get("type") == "text":
-                            text_parts.append(item.get("text", ""))
-                        elif item.get("type") == "tool_use":
-                            tool_name = item.get("name", "unknown_tool")
-                            tool_input = item.get("input", {})
-                            tool_parts.append(f"Used {tool_name}: {self._format_tool_input(tool_input)}")
-                        elif item.get("type") == "tool_result":
-                            tool_id = item.get("tool_use_id", "unknown")
-                            is_error = item.get("is_error", False)
-                            status = "ERROR" if is_error else "SUCCESS"
-                            # Don't include full image data in summary
-                            content_summary = self._summarize_tool_result(item.get("content", ""))
-                            tool_parts.append(f"Tool result ({status}): {content_summary}")
-                    elif hasattr(item, 'type'):
-                        # Handle BetaBlock objects
-                        if item.type == "text":
-                            text_parts.append(getattr(item, 'text', ''))
-                        elif item.type == "tool_use":
-                            tool_name = getattr(item, 'name', 'unknown_tool')
-                            tool_input = getattr(item, 'input', {})
-                            tool_parts.append(f"Used {tool_name}: {self._format_tool_input(tool_input)}")
-                
-                msg_text = " ".join(text_parts) if text_parts else ""
-                tool_text = " | ".join(tool_parts) if tool_parts else ""
-                
-                full_text = f"{msg_text} {tool_text}".strip()
-                if full_text:
-                    formatted.append(f"{role.upper()}: {full_text}")
-        
-        return "\n\n".join(formatted)
-    
-    def _format_tool_input(self, tool_input: Dict[str, Any]) -> str:
-        """Format tool input for summary."""
-        if not tool_input:
-            return ""
-        
-        # Simplify common tool inputs
-        if "action" in tool_input:
-            action = tool_input["action"]
-            if action == "screenshot":
-                return "took screenshot"
-            elif action in ["left_click", "right_click", "double_click"]:
-                coord = tool_input.get("coordinate", "")
-                return f"{action} at {coord}" if coord else action
-            elif action == "type":
-                text = tool_input.get("text", "")
-                return f"typed '{text[:50]}...'" if len(text) > 50 else f"typed '{text}'"
-            elif action == "scroll":
-                direction = tool_input.get("scroll_direction", "down")
-                return f"scrolled {direction}"
-        
-        # For other inputs, show key-value pairs
-        return ", ".join([f"{k}={v}" for k, v in tool_input.items()])
-    
-    def _summarize_tool_result(self, content) -> str:
-        """Summarize tool result content for the summary."""
-        if isinstance(content, list):
-            # Look for text content, ignore images
-            text_parts = []
-            has_image = False
-            for item in content:
-                if isinstance(item, dict):
-                    if item.get("type") == "text":
-                        text_parts.append(item.get("text", ""))
-                    elif item.get("type") == "image":
-                        has_image = True
-            
-            result = " ".join(text_parts) if text_parts else "completed"
-            if has_image:
-                result += " (with screenshot)"
-            return result
-        else:
-            # Simple string content
-            content_str = str(content)
-            return content_str[:100] + "..." if len(content_str) > 100 else content_str
-    
-    def _create_basic_summary(self, messages: List[BetaMessageParam]) -> str:
-        """Create a basic summary when AI summarization fails."""
-        user_messages = [msg for msg in messages if msg["role"] == "user"]
-        tool_actions = []
-        
-        for msg in messages:
-            if msg["role"] == "assistant" and isinstance(msg["content"], list):
-                for item in msg["content"]:
-                    if isinstance(item, dict) and item.get("type") == "tool_use":
-                        action = item.get("input", {}).get("action", item.get("name", "unknown"))
-                        tool_actions.append(action)
-                    elif hasattr(item, 'type') and item.type == "tool_use":
-                        action = getattr(item, 'input', {}).get("action", getattr(item, 'name', "unknown"))
-                        tool_actions.append(action)
-        
-        summary = f"User has sent {len(user_messages)} messages. "
-        if tool_actions:
-            summary += f"Computer actions taken: {', '.join(set(tool_actions))}. "
-        summary += f"Conversation started at {datetime.now().isoformat()}."
-        
-        return summary
 
 
 class ActorService:
@@ -189,13 +23,13 @@ class ActorService:
         self.response_service = ResponseService()
         self.executor_client = ExecutorClient(settings)
         self._actor = self._create_actor()
-        self.summarizer = ConversationSummarizer(self._actor)
+        self.summary_service = SummaryService(self._actor)
         
         # Conversation state with summarization support
         self._conversation_history: List[BetaMessageParam] = []
         self.current_summary: Optional[str] = None
         self.messages_since_summary = 0
-        self.summary_threshold = getattr(settings, 'summary_threshold', 5)  # Summarize after N messages
+        self.summary_threshold = getattr(settings, 'summary_threshold', 5)
         
         logger.info("ActorService initialized successfully with summarization support")
     
@@ -220,13 +54,20 @@ class ActorService:
     
     def _should_create_summary(self) -> bool:
         """Determine if a new summary should be created."""
-        return (
-            len(self._conversation_history) > self.summary_threshold and
-            self.messages_since_summary >= self.summary_threshold
-        )
+        return self.messages_since_summary >= self.summary_threshold
     
-    def _create_messages_with_summary(self, new_user_message: Dict[str, Any]) -> List[BetaMessageParam]:
-        """Create message list with summary instead of full history."""
+    def _create_summary(self):
+        """Create a new conversation summary and clear history."""
+        logger.info("Creating conversation summary...")
+        self.current_summary = self.summary_service.create_summary(self._conversation_history)
+        # Clear the entire history since we now have a summary
+        self._conversation_history = []
+        self.messages_since_summary = 0
+        logger.info(f"Summary created successfully (length: {len(self.current_summary)} chars)")
+        logger.info("Conversation history cleared - will use summary-only approach")
+    
+    def _create_messages_with_summary_only(self, new_user_message: Dict[str, Any]) -> List[BetaMessageParam]:
+        """Create message list with only summary and new user message."""
         messages = []
         
         # Add summary if available
@@ -239,18 +80,209 @@ class ActorService:
                 )]
             }
             messages.append(summary_message)
-        
-        # Add recent messages (keep last few for immediate context)
-        recent_messages_count = min(4, len(self._conversation_history))  # Keep last 4 messages
-        if recent_messages_count > 0:
-            messages.extend(self._conversation_history[-recent_messages_count:])
-        
-        # Add new user message
-        messages.append(new_user_message)
+            
+            # Add new user message with continuation context
+            messages.append({
+                "role": "user",
+                "content": [TextBlock(type="text", text=new_user_message["content"][0].text)]
+            })
+        else:
+            # If no summary, just return the new user message
+            messages.append(new_user_message)
         
         return messages
-
-    async def process_text_with_tools_stream(self, text: str, max_iterations: int = 20) -> AsyncGenerator[Dict[str, Any], None]:
+    
+    def _get_api_messages_for_iteration(self, iteration: int, user_message: BetaMessageParam, text: str) -> List[BetaMessageParam]:
+        """Get appropriate messages for the current iteration."""
+        if iteration == 0:
+            # For the first iteration
+            if self.current_summary:
+                # Use summary-only approach if we have a summary
+                return self._create_messages_with_summary_only(user_message)
+            else:
+                # Use full history if no summary yet, but ensure we have at least the user message
+                if self._conversation_history:
+                    return self._conversation_history + [user_message]
+                else:
+                    # If no history yet (first message), just return the user message
+                    return [user_message]
+        else:
+            # For subsequent iterations in the same conversation turn
+            # Always use recent history (since we haven't summarized mid-turn)
+            # Ensure we always return at least one message
+            if self._conversation_history:
+                return self._conversation_history
+            else:
+                # Fallback to user message if history is somehow empty
+                return [user_message]
+    
+    def _create_mid_conversation_summary(self):
+        """Create summary and clear history completely."""
+        logger.info("Creating mid-conversation summary...")
+        self.current_summary = self.summary_service.create_summary(self._conversation_history)
+        
+        # Clear the entire history since we now have a summary
+        self._conversation_history = []
+        self.messages_since_summary = 0
+        
+        logger.info(f"Mid-conversation summary created. History completely cleared.")
+    
+    def _format_tool_result_content(self, tool_result) -> Any:
+        """Format tool result content for conversation."""
+        if hasattr(tool_result, 'base64_image') and tool_result.base64_image:
+            # For screenshots, include both text and image
+            return [
+                {"type": "text", "text": str(tool_result.output)},
+                {
+                    "type": "image",
+                    "source": {
+                        "type": "base64",
+                        "media_type": "image/png",
+                        "data": tool_result.base64_image
+                    }
+                }
+            ]
+        else:
+            # For other actions, just text
+            return str(tool_result.output)
+    
+    async def _execute_tool_and_create_result(self, content_block: BetaToolUseBlock) -> Dict[str, Any]:
+        """Execute a tool and create the result dictionary."""
+        try:
+            tool_result = await self.executor_client.execute_tool_use(content_block)
+            tool_result_content = self._format_tool_result_content(tool_result)
+            
+            return {
+                "type": "tool_result",
+                "tool_use_id": content_block.id,
+                "content": tool_result_content
+            }
+        except Exception as e:
+            logger.error(f"Tool execution failed: {str(e)}")
+            return {
+                "type": "tool_result",
+                "tool_use_id": content_block.id,
+                "content": f"Error: {str(e)}",
+                "is_error": True
+            }
+    
+    async def _process_message_content(self, beta_message: BetaMessage) -> Tuple[List[Dict[str, Any]], List[str], bool]:
+        """Process message content and return tool results, text responses, and whether tools were used."""
+        tool_results = []
+        text_responses = []
+        has_tool_use = False
+        
+        for content_block in beta_message.content:
+            if isinstance(content_block, BetaToolUseBlock):
+                has_tool_use = True
+                logger.info(f"Executing tool: {content_block.name}")
+                tool_result = await self._execute_tool_and_create_result(content_block)
+                tool_results.append(tool_result)
+            elif isinstance(content_block, BetaTextBlock):
+                text_responses.append(content_block.text)
+        
+        return tool_results, text_responses, has_tool_use
+    
+    async def _process_message_content_with_stream(self, beta_message: BetaMessage) -> AsyncGenerator[Dict[str, Any], None]:
+        """Process message content with streaming updates."""
+        tool_results = []
+        text_responses = []
+        has_tool_use = False
+        
+        for content_block in beta_message.content:
+            if isinstance(content_block, BetaToolUseBlock):
+                has_tool_use = True
+                logger.info(f"Executing tool: {content_block.name}")
+                
+                # Extract action for more descriptive messages
+                action = content_block.input.get('action', '') if isinstance(content_block.input, dict) else ''
+                tool_description = f"{action}" if action else content_block.name
+                
+                # Send tool execution status
+                yield {
+                    "type": "tool_execution",
+                    "tool_name": content_block.name,
+                    "tool_input": content_block.input,
+                    "action": action,
+                    "message": f"Executing {tool_description}...",
+                    "timestamp": time.time()
+                }
+                
+                # Execute tool and get result
+                tool_result_dict = await self._execute_tool_and_create_result(content_block)
+                tool_results.append(tool_result_dict)
+                
+                # Send appropriate completion/error message
+                if tool_result_dict.get("is_error"):
+                    yield {
+                        "type": "tool_error",
+                        "tool_name": content_block.name,
+                        "action": action,
+                        "message": f"Error executing {tool_description}: {tool_result_dict['content']}",
+                        "timestamp": time.time()
+                    }
+                else:
+                    result_summary = str(tool_result_dict['content'])
+                    if len(result_summary) > 200:
+                        result_summary = result_summary[:200] + "..."
+                    
+                    yield {
+                        "type": "tool_complete",
+                        "tool_name": content_block.name,
+                        "action": action,
+                        "message": f"Completed {tool_description}",
+                        "result_summary": result_summary,
+                        "timestamp": time.time()
+                    }
+            
+            elif isinstance(content_block, BetaTextBlock):
+                text_responses.append(content_block.text)
+                
+                # Send assistant text response immediately
+                yield {
+                    "type": "assistant_message",
+                    "message": content_block.text,
+                    "timestamp": time.time()
+                }
+        
+        # Return final results
+        yield {
+            "type": "processing_complete",
+            "tool_results": tool_results,
+            "text_responses": text_responses,
+            "has_tool_use": has_tool_use
+        }
+    
+    def _handle_iteration_results(
+        self, 
+        tool_results: List[Dict[str, Any]], 
+        text_responses: List[str], 
+        has_tool_use: bool, 
+        responses: List[str]
+    ) -> bool:
+        """Handle iteration results and return whether to continue."""
+        # If there were tool uses, add the results to conversation and continue
+        if has_tool_use:
+            if tool_results:
+                tool_result_message = {
+                    "role": "user",
+                    "content": tool_results
+                }
+                self._conversation_history.append(tool_result_message)
+                self.messages_since_summary += 1
+            
+            # If this was just tool use without final response, continue the loop
+            if not text_responses:
+                return True
+        
+        # If we have text responses, add them to our final responses
+        if text_responses:
+            responses.extend(text_responses)
+            
+        # If no tool use, we're done
+        return has_tool_use
+    
+    async def process_text_with_tools_stream(self, text: str) -> AsyncGenerator[Dict[str, Any], None]:
         """Process text input with tool execution support and stream updates with summarization."""
         try:
             # Check if we need to create a summary before processing
@@ -261,14 +293,11 @@ class ActorService:
                     "timestamp": time.time()
                 }
                 
-                logger.info("Creating conversation summary...")
-                self.current_summary = self.summarizer.create_summary(self._conversation_history)
-                self.messages_since_summary = 0
-                logger.info(f"Summary created successfully (length: {len(self.current_summary)} chars)")
+                self._create_summary()
                 
                 yield {
                     "type": "status",
-                    "message": "Summary created, optimizing conversation history...",
+                    "message": "Summary created, conversation history optimized...",
                     "timestamp": time.time()
                 }
             
@@ -296,14 +325,16 @@ class ActorService:
             
             responses = []
             
-            for iteration in range(max_iterations):
+            iteration = 0
+            while True:
+                iteration += 1
                 yield {
                     "type": "status",
-                    "message": f"Processing iteration {iteration + 1}/{max_iterations}...",
+                    "message": f"Processing request...",
                     "timestamp": time.time()
                 }
                 
-                logger.info(f"Processing iteration {iteration + 1}/{max_iterations}")
+                logger.info(f"Processing iteration {iteration}")
                 
                 # Get response from Claude
                 yield {
@@ -313,19 +344,7 @@ class ActorService:
                 }
                 
                 # Decide which messages to send to the actor
-                if self.current_summary and iteration == 0:
-                    # For the first iteration, use summary approach if we have one
-                    api_messages = self._create_messages_with_summary(user_message)
-                    # Remove the duplicate user message since it's already included
-                    api_messages = api_messages[:-1] + [{
-                        "role": "user",
-                        "content": [TextBlock(type="text", text=text)]
-                    }]
-                else:
-                    # For subsequent iterations or when no summary, use recent history
-                    recent_count = min(8, len(self._conversation_history))
-                    api_messages = self._conversation_history[-recent_count:]
-                
+                api_messages = self._get_api_messages_for_iteration(iteration - 1, user_message, text)
                 beta_message = self._actor(messages=api_messages)
                 
                 # Add assistant message to conversation history
@@ -336,137 +355,30 @@ class ActorService:
                 self._conversation_history.append(assistant_message)
                 self.messages_since_summary += 1
                 
-                # Check if the response contains tool use blocks
-                tool_results = []
-                text_responses = []
-                has_tool_use = False
+                # Process message content with streaming
+                async for update in self._process_message_content_with_stream(beta_message):
+                    if update["type"] == "processing_complete":
+                        tool_results = update["tool_results"]
+                        text_responses = update["text_responses"]
+                        has_tool_use = update["has_tool_use"]
+                        break
+                    else:
+                        yield update
                 
-                for content_block in beta_message.content:
-                    if isinstance(content_block, BetaToolUseBlock):
-                        has_tool_use = True
-                        logger.info(f"Executing tool: {content_block.name}")
-                        
-                        # Extract action for more descriptive messages
-                        action = content_block.input.get('action', '') if isinstance(content_block.input, dict) else ''
-                        tool_description = f"{action}" if action else content_block.name
-                        
-                        # Send tool execution status
-                        yield {
-                            "type": "tool_execution",
-                            "tool_name": content_block.name,
-                            "tool_input": content_block.input,
-                            "action": action,
-                            "message": f"Executing {tool_description}...",
-                            "timestamp": time.time()
-                        }
-                        
-                        # Execute the tool via executor service
-                        try:
-                            tool_result = await self.executor_client.execute_tool_use(content_block)
-
-                            # Send tool completion
-                            yield {
-                                "type": "tool_complete",
-                                "tool_name": content_block.name,
-                                "action": action,
-                                "message": f"Completed {tool_description}",
-                                "result_summary": str(tool_result.output)[:200] + "..." if len(str(tool_result.output)) > 200 else str(tool_result.output),
-                                "timestamp": time.time()
-                            }
-                            
-                            # Create tool result for conversation - ensure proper format
-                            if hasattr(tool_result, 'base64_image') and tool_result.base64_image:
-                                # For screenshots, include both text and image
-                                tool_result_content = [
-                                    {"type": "text", "text": str(tool_result.output)},
-                                    {
-                                        "type": "image",
-                                        "source": {
-                                            "type": "base64",
-                                            "media_type": "image/png",
-                                            "data": tool_result.base64_image
-                                        }
-                                    }
-                                ]
-                            else:
-                                # For other actions, just text
-                                tool_result_content = str(tool_result.output)
-                            
-                            tool_results.append({
-                                "type": "tool_result",
-                                "tool_use_id": content_block.id,
-                                "content": tool_result_content
-                            })
-                            
-                        except Exception as e:
-                            logger.error(f"Tool execution failed: {str(e)}")
-                            
-                            # Send tool error
-                            yield {
-                                "type": "tool_error",
-                                "tool_name": content_block.name,
-                                "action": action,
-                                "message": f"Error executing {tool_description}: {str(e)}",
-                                "timestamp": time.time()
-                            }
-                            
-                            tool_results.append({
-                                "type": "tool_result",
-                                "tool_use_id": content_block.id,
-                                "content": f"Error: {str(e)}",
-                                "is_error": True
-                            })
-                    
-                    elif isinstance(content_block, BetaTextBlock):
-                        text_responses.append(content_block.text)
-                        
-                        # Send assistant text response immediately
-                        yield {
-                            "type": "assistant_message",
-                            "message": content_block.text,
-                            "timestamp": time.time()
-                        }
+                # Handle results and check if we should continue
+                should_continue = self._handle_iteration_results(tool_results, text_responses, has_tool_use, responses)
                 
-                # If there were tool uses, add the results to conversation and continue
-                if has_tool_use:
-                    if tool_results:
-                        tool_result_message = {
-                            "role": "user",
-                            "content": tool_results
-                        }
-                        self._conversation_history.append(tool_result_message)
-                        self.messages_since_summary += 1
-                    
-                    # If this was just tool use without final response, continue the loop
-                    if not text_responses:
-                        continue
-                
-                # If we have text responses, add them to our final responses
-                if text_responses:
-                    responses.extend(text_responses)
-                    
-                # If no tool use, we're done
-                if not has_tool_use:
+                if not should_continue:
                     break
                 
-                # Check if we should create a mid-conversation summary to keep history manageable
+                # Check if we should create a mid-conversation summary
                 if self._should_create_summary():
                     yield {
                         "type": "status",
                         "message": "Creating mid-conversation summary to optimize performance...",
                         "timestamp": time.time()
                     }
-                    
-                    # Create summary but keep some recent context
-                    logger.info("Creating mid-conversation summary...")
-                    self.current_summary = self.summarizer.create_summary(self._conversation_history)
-                    
-                    # Keep only the most recent messages and clear the rest
-                    recent_messages = self._conversation_history[-4:] if len(self._conversation_history) > 4 else self._conversation_history
-                    self._conversation_history = recent_messages
-                    self.messages_since_summary = len(recent_messages)
-                    
-                    logger.info(f"Mid-conversation summary created. History trimmed to {len(recent_messages)} recent messages")
+                    self._create_mid_conversation_summary()
             
             # Send final completion status
             yield {
@@ -478,8 +390,6 @@ class ActorService:
             }
             
             logger.info(f"Processed {len(responses)} text blocks from conversation")
-            
-            # Clean up old responses periodically
             self.response_service.clear_old_responses()
             
         except Exception as e:
@@ -491,15 +401,12 @@ class ActorService:
             }
             raise ActorServiceError(f"Text processing failed: {str(e)}")
 
-    async def process_text_with_tools(self, text: str, max_iterations: int = 20) -> List[str]:
+    async def process_text_with_tools(self, text: str) -> List[str]:
         """Process text input with tool execution support in a conversation loop with summarization."""
         try:
             # Check if we need to create a summary before processing
             if self._should_create_summary():
-                logger.info("Creating conversation summary...")
-                self.current_summary = self.summarizer.create_summary(self._conversation_history)
-                self.messages_since_summary = 0
-                logger.info(f"Summary created successfully (length: {len(self.current_summary)} chars)")
+                self._create_summary()
             
             # Add user message to conversation history
             user_message = {
@@ -511,24 +418,13 @@ class ActorService:
             
             responses = []
             
-            for iteration in range(max_iterations):
-                logger.info(f"Processing iteration {iteration + 1}/{max_iterations}")
+            iteration = 0
+            while True:
+                iteration += 1
+                logger.info(f"Processing iteration {iteration}")
                 
                 # Decide which messages to send to the actor
-                if self.current_summary and iteration == 0:
-                    # For the first iteration, use summary approach if we have one
-                    api_messages = self._create_messages_with_summary(user_message)
-                    # Remove the duplicate user message since it's already included
-                    api_messages = api_messages[:-1] + [{
-                        "role": "user",
-                        "content": [TextBlock(type="text", text=text)]
-                    }]
-                else:
-                    # For subsequent iterations or when no summary, use recent history
-                    recent_count = min(8, len(self._conversation_history))
-                    api_messages = self._conversation_history[-recent_count:]
-                
-                # Get response from Claude
+                api_messages = self._get_api_messages_for_iteration(iteration - 1, user_message, text)
                 beta_message = self._actor(messages=api_messages)
                 
                 # Add assistant message to conversation history
@@ -539,93 +435,20 @@ class ActorService:
                 self._conversation_history.append(assistant_message)
                 self.messages_since_summary += 1
                 
-                # Check if the response contains tool use blocks
-                tool_results = []
-                text_responses = []
-                has_tool_use = False
+                # Process message content
+                tool_results, text_responses, has_tool_use = await self._process_message_content(beta_message)
                 
-                for content_block in beta_message.content:
-                    if isinstance(content_block, BetaToolUseBlock):
-                        has_tool_use = True
-                        logger.info(f"Executing tool: {content_block.name}")
-                        
-                        # Execute the tool via executor service
-                        try:
-                            tool_result = await self.executor_client.execute_tool_use(content_block)
-                            
-                            # Create tool result for conversation - ensure proper format
-                            if hasattr(tool_result, 'base64_image') and tool_result.base64_image:
-                                # For screenshots, include both text and image
-                                tool_result_content = [
-                                    {"type": "text", "text": str(tool_result.output)},
-                                    {
-                                        "type": "image",
-                                        "source": {
-                                            "type": "base64",
-                                            "media_type": "image/png",
-                                            "data": tool_result.base64_image
-                                        }
-                                    }
-                                ]
-                            else:
-                                # For other actions, just text
-                                tool_result_content = str(tool_result.output)
-                            
-                            tool_results.append({
-                                "type": "tool_result",
-                                "tool_use_id": content_block.id,
-                                "content": tool_result_content
-                            })
-                            
-                        except Exception as e:
-                            logger.error(f"Tool execution failed: {str(e)}")
-                            tool_results.append({
-                                "type": "tool_result",
-                                "tool_use_id": content_block.id,
-                                "content": f"Error: {str(e)}",
-                                "is_error": True
-                            })
-                    
-                    elif isinstance(content_block, BetaTextBlock):
-                        text_responses.append(content_block.text)
+                # Handle results and check if we should continue
+                should_continue = self._handle_iteration_results(tool_results, text_responses, has_tool_use, responses)
                 
-                # If there were tool uses, add the results to conversation and continue
-                if has_tool_use:
-                    if tool_results:
-                        tool_result_message = {
-                            "role": "user",
-                            "content": tool_results
-                        }
-                        self._conversation_history.append(tool_result_message)
-                        self.messages_since_summary += 1
-                    
-                    # If this was just tool use without final response, continue the loop
-                    if not text_responses:
-                        continue
-                
-                # If we have text responses, add them to our final responses
-                if text_responses:
-                    responses.extend(text_responses)
-                    
-                # If no tool use, we're done
-                if not has_tool_use:
+                if not should_continue:
                     break
                 
-                # Check if we should create a mid-conversation summary to keep history manageable
+                # Check if we should create a mid-conversation summary
                 if self._should_create_summary():
-                    logger.info("Creating mid-conversation summary...")
-                    self.current_summary = self.summarizer.create_summary(self._conversation_history)
-                    
-                    # Keep only the most recent messages and clear the rest
-                    recent_messages = self._conversation_history[-4:] if len(self._conversation_history) > 4 else self._conversation_history
-                    self._conversation_history = recent_messages
-                    self.messages_since_summary = len(recent_messages)
-                    
-                    logger.info(f"Mid-conversation summary created. History trimmed to {len(recent_messages)} recent messages")
+                    self._create_mid_conversation_summary()
             
             logger.info(f"Processed {len(responses)} text blocks from conversation")
-            
-            # Clean up old responses periodically
             self.response_service.clear_old_responses()
             
             return responses if responses else ["I completed the requested actions."]
@@ -655,8 +478,6 @@ class ActorService:
             ]
             
             logger.info(f"Extracted {len(texts)} text blocks from response")
-            
-            # Clean up old responses periodically
             self.response_service.clear_old_responses()
             
             return texts
@@ -678,9 +499,7 @@ class ActorService:
             logger.info(f"Processing raw text input (length: {len(text)})")
             response = self._actor(messages=messages)
             
-            # Clean up old responses periodically
             self.response_service.clear_old_responses()
-            
             return response
             
         except Exception as e:
@@ -714,7 +533,8 @@ class ActorService:
             return "No conversation history to summarize."
         
         logger.info("Force creating conversation summary...")
-        self.current_summary = self.summarizer.create_summary(self._conversation_history)
+        self.current_summary = self.summary_service.create_summary(self._conversation_history)
+        self._conversation_history = []  # Clear history after creating summary
         self.messages_since_summary = 0
         logger.info(f"Summary created successfully (length: {len(self.current_summary)} chars)")
         return self.current_summary
